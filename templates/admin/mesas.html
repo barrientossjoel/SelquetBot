@@ -1,0 +1,48 @@
+{% extends 'admin/base.html' %}
+{% block content %}
+<div class="card">
+  <h2>Agregar franja de reservas</h2>
+  <p class="hint">Una fila por día y turno. El bot usa esto para saber si hay lugar
+    (mesas de la franja menos las reservas que se pisan).</p>
+  <form class="row-form" method="post" action="{{ url_for('admin.mesa_nueva') }}">
+    <select name="dia_semana" style="flex:0 0 130px">
+      {% for i in range(7) %}<option value="{{ i }}">{{ dias[i] }}</option>{% endfor %}
+    </select>
+    <input type="time" name="hora_desde" value="20:00" required style="flex:0 0 110px">
+    <input type="time" name="hora_hasta" value="23:59" required style="flex:0 0 110px">
+    <input type="number" name="cantidad_mesas" min="1" value="12" placeholder="Mesas" style="flex:0 0 90px">
+    <input type="number" name="capacidad" min="1" value="4" placeholder="Capacidad" style="flex:0 0 100px">
+    <input type="number" name="duracion_min" min="15" step="15" value="90" placeholder="Duración (min)" style="flex:0 0 120px">
+    <button class="btn primary">Agregar</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Franjas configuradas</h2>
+  {% if not filas %}
+    <p class="empty">Todavía no hay franjas. Sin franjas, el bot responde que no toma reservas.</p>
+  {% else %}
+  <table>
+    <thead><tr><th>Día</th><th>Desde</th><th>Hasta</th><th>Mesas</th><th>Capacidad</th><th>Duración</th><th></th></tr></thead>
+    <tbody>
+      {% for f in filas %}
+        <tr>
+          <td>{{ dias[f.dia_semana] }}</td>
+          <td>{{ f.hora_desde }}</td>
+          <td>{{ f.hora_hasta }}</td>
+          <td>{{ f.cantidad_mesas }}</td>
+          <td>{{ f.capacidad }}</td>
+          <td>{{ f.duracion_min }} min</td>
+          <td class="acciones">
+            <form method="post" action="{{ url_for('admin.mesa_borrar', cid=f.id) }}"
+                  onsubmit="return confirm('¿Borrar esta franja?')">
+              <button class="btn small danger">Borrar</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

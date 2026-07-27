@@ -1,0 +1,101 @@
+{% extends 'pedir/base.html' %}
+{% block content %}
+
+{% if error %}<div class="ped-error">{{ error }}</div>{% endif %}
+{% if pedido_minimo %}<p class="ped-min">Pedido mínimo: {{ pedido_minimo | pesos }}</p>{% endif %}
+
+<form method="post" action="{{ url_for('pedir.crear') }}" id="ped-form">
+  <input type="hidden" name="items_json" id="items_json" value="[]">
+
+  {% if not categorias %}
+    <p class="ped-vacio">Por ahora no hay productos disponibles.</p>
+  {% endif %}
+
+  {% for categoria, items in categorias %}
+    <section class="ped-cat">
+      <h2>{{ categoria }}</h2>
+      {% for it in items %}
+        <div class="ped-item" data-id="{{ it.id }}" data-nombre="{{ it.nombre }}" data-precio="{{ it.precio }}">
+          <div class="ped-item-info">
+            <span class="ped-item-nombre">{{ it.nombre }}</span>
+            <span class="ped-item-precio">{{ it.precio | pesos }}</span>
+          </div>
+          <div class="ped-qty">
+            <button type="button" class="ped-menos" aria-label="Quitar">−</button>
+            <span class="ped-cant">0</span>
+            <button type="button" class="ped-mas" aria-label="Agregar">+</button>
+          </div>
+        </div>
+      {% endfor %}
+    </section>
+  {% endfor %}
+
+  <section class="ped-datos">
+    <h2>Tus datos</h2>
+    <input name="nombre" placeholder="Tu nombre" value="{{ form.get('nombre', '') }}" required>
+    <input name="telefono" placeholder="Tu teléfono (ej. 11 5619-4427)" value="{{ form.get('telefono', '') }}" required>
+    <label class="ped-label">¿A qué hora lo retirás?</label>
+    <input name="hora_retiro" type="time" value="{{ form.get('hora_retiro', '') }}">
+    <textarea name="notas" placeholder="Aclaraciones (opcional)">{{ form.get('notas', '') }}</textarea>
+
+    <h2>¿Cómo pagás?</h2>
+    <label class="ped-pago">
+      <input type="radio" name="metodo_pago" value="efectivo" checked> Al retirar (efectivo / tarjeta)
+    </label>
+    {% if mp_disponible %}
+    <label class="ped-pago">
+      <input type="radio" name="metodo_pago" value="mercadopago"> Pagar ahora con MercadoPago
+    </label>
+    {% endif %}
+  </section>
+
+  <div class="ped-barra">
+    <div class="ped-total-wrap">
+      <span>Total</span>
+      <span class="ped-total" id="ped-total">$0</span>
+    </div>
+    <button type="submit" class="ped-confirmar" id="ped-confirmar" disabled>Confirmar pedido</button>
+  </div>
+</form>
+
+<script>
+  (function () {
+    const form = document.getElementById('ped-form');
+    const totalEl = document.getElementById('ped-total');
+    const confirmar = document.getElementById('ped-confirmar');
+    const itemsInput = document.getElementById('items_json');
+
+    function pesos(n) { return '$' + n.toLocaleString('es-AR'); }
+
+    function recalcular() {
+      let total = 0;
+      const items = [];
+      form.querySelectorAll('.ped-item').forEach(function (row) {
+        const cant = parseInt(row.querySelector('.ped-cant').textContent, 10) || 0;
+        if (cant > 0) {
+          const precio = parseInt(row.dataset.precio, 10) || 0;
+          total += precio * cant;
+          items.push({ nombre: row.dataset.nombre, cantidad: cant });
+        }
+      });
+      totalEl.textContent = pesos(total);
+      itemsInput.value = JSON.stringify(items);
+      confirmar.disabled = items.length === 0;
+    }
+
+    form.querySelectorAll('.ped-item').forEach(function (row) {
+      const cantEl = row.querySelector('.ped-cant');
+      row.querySelector('.ped-mas').addEventListener('click', function () {
+        cantEl.textContent = (parseInt(cantEl.textContent, 10) || 0) + 1;
+        recalcular();
+      });
+      row.querySelector('.ped-menos').addEventListener('click', function () {
+        cantEl.textContent = Math.max(0, (parseInt(cantEl.textContent, 10) || 0) - 1);
+        recalcular();
+      });
+    });
+
+    recalcular();
+  })();
+</script>
+{% endblock %}

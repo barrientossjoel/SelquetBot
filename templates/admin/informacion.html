@@ -1,0 +1,17 @@
+{% extends 'admin/base.html' %}
+{% block content %}
+<form class="card" method="post">
+  <h2>Información del local</h2>
+  <p class="hint">El bot responde con estos datos. Lo que dejes vacío, no lo menciona.</p>
+  {% for campo in campos %}
+    <label>{{ campo.label }}
+      {% if campo.tipo == 'textarea' %}
+        <textarea name="{{ campo.clave }}" rows="2">{{ valores.get(campo.clave, '') }}</textarea>
+      {% else %}
+        <input type="text" name="{{ campo.clave }}" value="{{ valores.get(campo.clave, '') }}">
+      {% endif %}
+    </label>
+  {% endfor %}
+  <button class="btn primary">Guardar</button>
+</form>
+{% endblock %}

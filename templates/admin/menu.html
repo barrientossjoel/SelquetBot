@@ -1,0 +1,98 @@
+{% extends 'admin/base.html' %}
+{% block content %}
+
+{% if preview_items %}
+<div class="card preview">
+  <h2>Previsualización del import</h2>
+  <p class="preview-meta">
+    Se cargan {{ preview_meta.total }} productos
+    (columnas detectadas: {{ preview_meta.columnas.values() | join(', ') }}).
+    {% if preview_meta.excluidas %}{{ preview_meta.excluidas }} excluidos por tener 1 en Stock Mínimo.{% endif %}
+    {% if preview_meta.descartadas %} {{ preview_meta.descartadas }} descartados por faltar nombre o precio válido.{% endif %}
+    <br>Al confirmar se <b>reemplaza el menú completo</b>.
+  </p>
+  <table>
+    <thead><tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Disponible</th></tr></thead>
+    <tbody>
+      {% for i in preview_items %}
+        <tr><td>{{ i.nombre }}</td><td>{{ i.categoria }}</td><td class="precio">{{ i.precio | pesos }}</td>
+            <td>{{ 'Sí' if i.disponible else 'No' }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="import-box" style="margin-top:16px">
+    <form method="post" action="{{ url_for('admin.menu_importar_confirmar') }}">
+      <input type="hidden" name="items_json" value='{{ preview_json }}'>
+      <button class="btn primary">Confirmar reemplazo</button>
+    </form>
+    <a class="btn ghost" href="{{ url_for('admin.menu') }}">Cancelar</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Agregar producto</h2>
+  <form class="row-form" method="post" action="{{ url_for('admin.menu_nuevo') }}">
+    <input name="nombre" placeholder="Nombre">
+    <input name="categoria" placeholder="Categoría (ej. Platos)">
+    <input name="precio" placeholder="Precio (ej. $8.500)">
+    <button class="btn primary">Agregar</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Importar desde Excel</h2>
+  <p class="hint">Subí el export del sistema (.xls, .xlsx o .csv). Toma el <b>Precio 1</b> como precio,
+    la <b>Familia</b> como categoría, y <b>excluye los ítems con 1 en Stock Mínimo</b>.
+    Al confirmar, el nuevo listado <b>reemplaza</b> al anterior.</p>
+  <div class="import-box">
+    <form class="import-box" method="post" action="{{ url_for('admin.menu_importar') }}" enctype="multipart/form-data">
+      <input type="file" name="archivo" accept=".xls,.xlsx,.csv" style="width:auto">
+      <button class="btn">Previsualizar</button>
+    </form>
+    <a class="btn link" href="{{ url_for('admin.menu_plantilla') }}">Descargar plantilla</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>Menú actual ({{ items | length }})</h2>
+    {% if items %}
+    <form id="menu-bulk" method="post" action="{{ url_for('admin.menu_guardar_todo') }}">
+      <input type="hidden" name="ids" value="{{ items | map(attribute='id') | join(',') }}">
+      <button class="btn primary">Guardar todos los cambios</button>
+    </form>
+    {% endif %}
+  </div>
+  <p class="hint">Editá lo que necesites y guardá todo junto con el botón. Destildá "Disponible" para marcar "no hay".</p>
+
+  {% if not items %}
+    <p class="empty">Todavía no hay productos. Importá tu Excel o agregá uno arriba.</p>
+  {% else %}
+  <table>
+    <thead><tr><th>Nombre</th><th style="width:170px">Categoría</th><th style="width:120px">Precio</th><th style="width:90px">Disponible</th><th></th></tr></thead>
+    <tbody>
+      {% for item in items %}
+        <tr class="{{ '' if item.disponible else 'nohay' }}">
+          <td><input name="nombre_{{ item.id }}" value="{{ item.nombre }}" form="menu-bulk"></td>
+          <td><input name="categoria_{{ item.id }}" value="{{ item.categoria }}" form="menu-bulk"></td>
+          <td><input name="precio_{{ item.id }}" value="{{ item.precio | pesos }}" form="menu-bulk"></td>
+          <td style="text-align:center">
+            <input type="checkbox" name="disp_{{ item.id }}" form="menu-bulk" {{ 'checked' if item.disponible }} style="width:auto">
+          </td>
+          <td class="acciones">
+            <form method="post" action="{{ url_for('admin.menu_borrar', mid=item.id) }}"
+                  onsubmit="return confirm('¿Borrar este producto?')">
+              <button class="btn small danger">Borrar</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div style="margin-top:16px">
+    <button class="btn primary" form="menu-bulk">Guardar todos los cambios</button>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

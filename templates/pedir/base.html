@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ nombre_local }} · Pedí online</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='pedir.css') }}">
+</head>
+<body>
+  <header class="ped-top">
+    <div class="ped-brand">{{ nombre_local }}</div>
+    <div class="ped-sub">Pedí para llevar</div>
+  </header>
+  <main class="ped-main">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

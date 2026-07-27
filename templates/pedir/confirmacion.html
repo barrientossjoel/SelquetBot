@@ -1,0 +1,40 @@
+{% extends 'pedir/base.html' %}
+{% block content %}
+
+<div class="ped-ok">
+  <div class="ped-check">✓</div>
+  <h1>¡Pedido registrado!</h1>
+  <p class="ped-numero">Pedido Nº {{ p.id }}</p>
+</div>
+
+<section class="ped-resumen">
+  <h2>Tu pedido</h2>
+  {% for it in p.items %}
+    <div class="ped-linea">
+      <span>{{ it.cantidad }}× {{ it.nombre }}</span>
+      <span>{{ (it.precio * it.cantidad) | pesos }}</span>
+    </div>
+  {% endfor %}
+  <div class="ped-linea ped-linea-total">
+    <span>Total</span><span>{{ p.total | pesos }}</span>
+  </div>
+  <ul class="ped-meta">
+    <li>A nombre de <b>{{ p.nombre_cliente }}</b></li>
+    {% if p.hora_retiro %}<li>Retirás a las <b>{{ p.hora_retiro.strftime('%H:%M') }}</b></li>{% endif %}
+    <li>Pago: <b>{{ 'MercadoPago' if p.metodo_pago == 'mercadopago' else 'al retirar' }}</b></li>
+  </ul>
+</section>
+
+{% if link_pago %}
+  <a class="ped-btn ped-btn-pago" href="{{ link_pago }}">Pagar ahora con MercadoPago</a>
+  <p class="ped-aviso">El pedido se manda a cocinar cuando se confirma el pago.</p>
+{% else %}
+  <p class="ped-aviso">Lo abonás al retirarlo en el local.</p>
+{% endif %}
+
+{% if wa_link %}
+  <a class="ped-btn ped-btn-wa" href="{{ wa_link }}">Enviar mi pedido por WhatsApp</a>
+{% endif %}
+
+<a class="ped-volver" href="{{ url_for('pedir.menu') }}">Hacer otro pedido</a>
+{% endblock %}

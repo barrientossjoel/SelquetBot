@@ -1,0 +1,108 @@
+{% extends 'admin/base.html' %}
+{% block content %}
+
+<div class="card">
+  <h2>Reporte diario a los jefes</h2>
+  <p class="hint">Al final del día se manda un resumen de las solicitudes de eventos y cuántas fueron contactadas.
+    Podés poner <b>varios</b> jefes separados por coma.</p>
+  <form method="post" action="{{ url_for('admin.eventos_jefe') }}">
+    <div class="row-form">
+      <input name="jefe_whatsapp" placeholder="WhatsApp de los jefes (separados por coma)" value="{{ jefe_whatsapp }}">
+      <input name="jefe_email" placeholder="Emails (separados por coma)" value="{{ jefe_email }}">
+      <input name="hora_reporte" placeholder="Hora" type="time" value="{{ hora_reporte }}" style="flex:0 0 120px">
+      <button class="btn primary">Guardar</button>
+    </div>
+  </form>
+  <form method="post" action="{{ url_for('admin.eventos_reporte_enviar') }}" style="margin-top:12px">
+    <button class="btn ghost">Enviar reporte ahora</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Destinatarios de notificación</h2>
+  <p class="hint">Cuando entra una solicitud de evento, se les manda el resumen por WhatsApp y por email.
+    Cargá al menos un dato de contacto por persona.</p>
+  <form class="row-form" method="post" action="{{ url_for('admin.evento_destinatario_nuevo') }}">
+    <input name="nombre" placeholder="Nombre">
+    <input name="email" placeholder="Email" type="email">
+    <input name="whatsapp" placeholder="WhatsApp (ej. 5491122334455)">
+    <button class="btn primary">Agregar</button>
+  </form>
+
+  {% if destinatarios %}
+  <table style="margin-top:16px">
+    <thead><tr><th>Nombre</th><th>Email</th><th>WhatsApp</th><th style="width:80px">Estado</th><th></th></tr></thead>
+    <tbody>
+      {% for d in destinatarios %}
+        <tr class="{{ '' if d.activo else 'inactiva' }}">
+          <td>{{ d.nombre }}</td>
+          <td>{{ d.email or '—' }}</td>
+          <td>{{ d.whatsapp or '—' }}</td>
+          <td><span class="badge {{ 'hay' if d.activo else 'nohay' }}">{{ 'Activo' if d.activo else 'Inactivo' }}</span></td>
+          <td class="acciones">
+            <form method="post" action="{{ url_for('admin.evento_destinatario_toggle', did=d.id) }}">
+              <button class="btn small link">{{ 'Desactivar' if d.activo else 'Activar' }}</button>
+            </form>
+            <form method="post" action="{{ url_for('admin.evento_destinatario_borrar', did=d.id) }}"
+                  onsubmit="return confirm('¿Borrar este destinatario?')">
+              <button class="btn small danger">Borrar</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="empty">Sin destinatarios. Cargá al menos uno para que lleguen las solicitudes.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Solicitudes de eventos recibidas</h2>
+  {% if not solicitudes %}
+    <p class="empty">Todavía no hay solicitudes. Las carga el bot cuando alguien consulta por un evento.</p>
+  {% else %}
+  <table>
+    <thead><tr><th>Fecha</th><th>Tipo</th><th>Contacto</th><th>Pers.</th><th>Cuándo</th><th>Detalle</th><th style="width:90px">Estado</th><th style="width:260px">Gestión</th></tr></thead>
+    <tbody>
+      {% for s in solicitudes %}
+        <tr class="{{ 'inactiva' if s.estado == 'cancelada' }}">
+          <td>{{ s.creado_en.strftime('%d/%m %H:%M') if s.creado_en }}</td>
+          <td>{{ s.tipo_evento or '—' }}</td>
+          <td>
+            {{ s.nombre_contacto or s.wa_id }}{% if s.empresa %} ({{ s.empresa }}){% endif %}
+            {% if s.email_contacto %}<br><small>{{ s.email_contacto }}</small>{% endif %}
+            {% if s.telefono_contacto %}<br><small>{{ s.telefono_contacto }}</small>{% endif %}
+            {% if s.horario_contacto %}<br><small>📞 contactar: {{ s.horario_contacto }}</small>{% endif %}
+          </td>
+          <td>{{ s.cantidad_personas if s.cantidad_personas is not none else '—' }}</td>
+          <td>{{ s.fecha_estimada or '—' }}</td>
+          <td>{{ s.detalle or '—' }}</td>
+          <td><span class="badge {{ 'hay' if s.estado == 'confirmada' else 'estado' }}">{{ s.estado }}</span></td>
+          <td class="acciones" style="text-align:left">
+            {% if s.estado == 'confirmada' %}
+              <small>✅ {{ s.notas_confirmacion or 'Confirmada' }}</small>
+            {% elif s.estado != 'cancelada' %}
+              {% if s.estado == 'nueva' %}
+              <form method="post" action="{{ url_for('admin.solicitud_estado', sid=s.id) }}">
+                <input type="hidden" name="estado" value="contactado"><button class="btn small link">Marcar contactado</button>
+              </form>
+              {% endif %}
+              <form method="post" action="{{ url_for('admin.solicitud_estado', sid=s.id) }}">
+                <input type="hidden" name="estado" value="confirmada">
+                <input name="notas_confirmacion" placeholder="Día/hora · personas · menú acordado"
+                       value="{{ s.notas_confirmacion or '' }}" style="margin-bottom:4px">
+                <button class="btn small primary">Confirmar reserva</button>
+              </form>
+              <form method="post" action="{{ url_for('admin.solicitud_estado', sid=s.id) }}">
+                <input type="hidden" name="estado" value="cancelada"><button class="btn small danger">Cancelar</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

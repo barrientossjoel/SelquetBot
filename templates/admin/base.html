@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ nombre_local }} · Panel</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">{{ nombre_local }} <span>· Panel</span></div>
+    <div class="topbar-right">
+      <form class="bot-toggle" method="post" action="{{ url_for('admin.bot_toggle') }}">
+        <span class="bot-label">Bot</span>
+        <button class="pill {{ 'on' if bot_activo else 'off' }}" title="Prender / apagar el bot">
+          {{ 'ON' if bot_activo else 'OFF' }}
+        </button>
+      </form>
+      <a class="logout" href="{{ url_for('admin.logout') }}">Salir</a>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    {% set tabs = [('informacion', 'Información'), ('faqs', 'FAQs'), ('menu', 'Menú'), ('mesas', 'Mesas'), ('eventos', 'Eventos'), ('operacion', 'Operación')] %}
+    {% for key, label in tabs %}
+      <a href="{{ url_for('admin.' ~ key) }}" class="{{ 'active' if active == key }}">{{ label }}</a>
+    {% endfor %}
+  </nav>
+
+  <main class="content">
+    {% with mensajes = get_flashed_messages(with_categories=true) %}
+      {% for categoria, mensaje in mensajes %}
+        <div class="flash {{ categoria }}">{{ mensaje }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

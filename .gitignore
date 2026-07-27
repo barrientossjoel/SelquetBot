@@ -1,0 +1,38 @@
+# Secretos y entorno
+.env
+.env.*
+!.env.example
+
+# Base de datos local (se regenera con seed.py)
+*.db
+*.sqlite
+*.sqlite3
+
+# Entornos virtuales
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# Editores / IDE
+.vscode/
+.idea/
+
+# Documentación interna / notas (no se versiona)
+docs/
+
+# Logs y temporales
+*.log
+ngrok.log
+
+# Sistema operativo
+Thumbs.db
+Desktop.ini
+.DS_Store

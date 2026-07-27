@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ nombre_local }} · Panel</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+</head>
+<body>
+  <div class="login-wrap">
+    <form class="login-card" method="post">
+      <h1>{{ nombre_local }} · Panel</h1>
+      {% with mensajes = get_flashed_messages(with_categories=true) %}
+        {% for categoria, mensaje in mensajes %}
+          <div class="flash {{ categoria }}">{{ mensaje }}</div>
+        {% endfor %}
+      {% endwith %}
+      <input type="password" name="password" placeholder="Contraseña" autofocus>
+      <button class="btn primary">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>

@@ -1,0 +1,43 @@
+{% extends 'admin/base.html' %}
+{% block content %}
+<div class="card">
+  <h2>Agregar FAQ</h2>
+  <p class="hint">Preguntas que no entran en los campos fijos de Información.</p>
+  <form class="row-form" method="post" action="{{ url_for('admin.faq_nueva') }}">
+    <input name="pregunta" placeholder="Pregunta (ej. ¿Aceptan mascotas?)">
+    <input name="respuesta" placeholder="Respuesta">
+    <button class="btn primary">Agregar</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>FAQs cargadas</h2>
+  {% if not faqs %}
+    <p class="empty">Todavía no hay FAQs.</p>
+  {% else %}
+  <table>
+    <thead><tr><th style="width:32%">Pregunta</th><th>Respuesta</th><th style="width:80px">Estado</th><th></th></tr></thead>
+    <tbody>
+      {% for f in faqs %}
+        <tr class="{{ '' if f.activo else 'inactiva' }}">
+          <td><input name="pregunta" value="{{ f.pregunta }}" form="faq{{ f.id }}"></td>
+          <td><input name="respuesta" value="{{ f.respuesta }}" form="faq{{ f.id }}"></td>
+          <td><span class="badge {{ 'hay' if f.activo else 'nohay' }}">{{ 'Activa' if f.activo else 'Oculta' }}</span></td>
+          <td class="acciones">
+            <form id="faq{{ f.id }}" method="post" action="{{ url_for('admin.faq_editar', fid=f.id) }}">
+              <button class="btn small ghost">Guardar</button>
+            </form>
+            <form method="post" action="{{ url_for('admin.faq_toggle', fid=f.id) }}">
+              <button class="btn small link">{{ 'Ocultar' if f.activo else 'Mostrar' }}</button>
+            </form>
+            <form method="post" action="{{ url_for('admin.faq_borrar', fid=f.id) }}" onsubmit="return confirm('¿Borrar esta FAQ?')">
+              <button class="btn small danger">Borrar</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}
