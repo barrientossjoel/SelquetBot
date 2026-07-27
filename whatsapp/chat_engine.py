@@ -13,6 +13,7 @@ from datetime import date
 
 from anthropic import Anthropic
 
+import eventos
 from config_store import get_config
 from .contexto import build_datos_local
 from .conversaciones import cargar_historial, guardar_turno
@@ -47,6 +48,10 @@ EVENTOS (corporativos, privados y sociales)
 - El local hace eventos: corporativos (desayunos de negocios, presentaciones, workshops, team building, networking), privados y sociales (cumpleaños, casamientos, aniversarios, bautismos, despedidas). Un grupo grande (8+ personas) también se maneja como evento.
 - Cuando detectes un evento, hacé el formulario: tomá los datos conversando y de a uno (no todos de golpe), preguntá qué tipo de evento es, nombre de quien organiza (y empresa si es corporativo), fecha/horario estimado, cantidad aproximada de personas, y requerimientos (catering, proyector/sonido, disposición de mesas, presupuesto). Nunca cierres con "llamá al local": la idea es tomarle los datos para que el equipo lo contacte.
 - SI ES UN EVENTO CORPORATIVO: pedile además un dato de contacto (teléfono o email) y EN QUÉ HORARIO prefiere que lo llamen para coordinar, y explicale que el equipo de eventos lo va a contactar en ese horario para explicarle cómo son los pasos.
+- A MEDIDA que el cliente te da datos del evento, guardalos con guardar_dato_evento (uno o varios por vez, mandá solo los que tengas). Esa tool te devuelve qué falta, y arriba vas a ver un bloque "EVENTO EN CURSO" con lo ya tomado: fijate ahí y pedí SOLO lo que falta.
+- NUNCA vuelvas a pedir un dato que la persona ya te dio: mirá el bloque "EVENTO EN CURSO". Si el cliente te corrige ("ya te dije"), NO insistas con esa pregunta: buscá el dato en lo que ya escribió, guardalo si hace falta y seguí con el siguiente que falte.
+- Si un dato cambió durante la charla (ej. primero dijo una fecha y después otra), tomá el último valor y confirmáselo explícitamente ("Entonces sería el 18 de agosto, ¿correcto?").
+- Antes de registrar, cerrá con un resumen de todos los datos en una línea para que confirme, y recién ahí usá crear_solicitud_evento.
 - Cuando tengas los datos, usá crear_solicitud_evento (si es corporativo, incluí el contacto y el horario_contacto). Confirmale que quedó registrada y que el equipo se va a contactar.
 
 OPINIONES
@@ -73,7 +78,7 @@ def responder(telefono: str, texto: str) -> str:
 
 def _loop(telefono: str, texto: str) -> str:
     client = Anthropic()
-    system = _build_system()
+    system = _build_system(telefono)
     historial = cargar_historial(telefono)
     historial.append({'role': 'user', 'content': texto})
 
@@ -108,8 +113,9 @@ def _correr_tools(content, telefono):
     return resultados
 
 
-def _build_system():
-    """Personalidad fija + datos del local leídos de la DB."""
+def _build_system(telefono: str):
+    """Personalidad fija + datos del local leídos de la DB. Si hay un evento en
+    curso, se suma un bloque aparte (sin cache) con lo ya capturado."""
     persona = SYSTEM_PERSONA.format(
         nombre_local=get_config('nombre_local', 'SELQUET'),
         fecha_hoy=date.today().isoformat(),
@@ -121,7 +127,13 @@ def _build_system():
                       'alguien quiere hacer un pedido; adaptalo con naturalidad, no hace falta repetirlo textual):\n'
                       + bienvenida)
     partes.append(build_datos_local())
-    return [{'type': 'text', 'text': '\n\n'.join(partes), 'cache_control': {'type': 'ephemeral'}}]
+    # Bloque grande y estable → cacheado. El estado del evento cambia por turno y
+    # por teléfono, así que va como bloque propio sin cache para no invalidarlo.
+    bloques = [{'type': 'text', 'text': '\n\n'.join(partes), 'cache_control': {'type': 'ephemeral'}}]
+    estado_evento = eventos.estado_borrador_texto(telefono)
+    if estado_evento:
+        bloques.append({'type': 'text', 'text': estado_evento})
+    return bloques
 
 
 def _persistir(telefono, texto_user, texto_final):

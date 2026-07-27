@@ -140,6 +140,28 @@ class DestinatarioEvento(Base):
     creado_en = Column(DateTime, default=datetime.now)
 
 
+class BorradorEvento(Base):
+    """Borrador de una solicitud de evento en curso: el bot va guardando acá cada
+    dato apenas lo captura, para no perderlo si el mensaje se cae de la ventana del
+    historial. Un borrador abierto por teléfono; al registrar la solicitud
+    (eventos.crear_solicitud) se vuelca a SolicitudEvento y se elimina."""
+    __tablename__ = 'borradores_evento'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    wa_id = Column(String(20), nullable=False, unique=True, index=True)
+    tipo_evento = Column(String(80))
+    nombre_contacto = Column(String(120))
+    empresa = Column(String(160))
+    email_contacto = Column(String(160))
+    telefono_contacto = Column(String(40))
+    horario_contacto = Column(String(120))
+    fecha_estimada = Column(String(80))
+    cantidad_personas = Column(Integer)
+    detalle = Column(Text)
+    actualizado_en = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    creado_en = Column(DateTime, default=datetime.now)
+
+
 class SolicitudEvento(Base):
     """Consulta de evento que arma el bot conversando con el cliente."""
     __tablename__ = 'solicitudes_evento'

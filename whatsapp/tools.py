@@ -76,9 +76,31 @@ TOOLS = [
         'input_schema': {'type': 'object', 'properties': {}},
     },
     {
+        'name': 'guardar_dato_evento',
+        'description': 'Guarda en un borrador los datos de un evento a medida que el cliente los va dando, '
+                       'para no perderlos aunque la charla se alargue. Llamala apenas captures uno o más '
+                       'datos (podés mandar solo los que tengas). Devuelve qué datos ya hay y cuáles faltan. '
+                       'Cuando no falte ninguno, recién ahí usá crear_solicitud_evento.',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'tipo_evento': {'type': 'string', 'description': 'Ej: corporativo, cumpleaños, casamiento, desayuno de negocios…'},
+                'nombre_contacto': {'type': 'string', 'description': 'Nombre de quien organiza.'},
+                'empresa': {'type': 'string', 'description': 'Empresa, si es corporativo.'},
+                'email_contacto': {'type': 'string', 'description': 'Email de contacto.'},
+                'telefono_contacto': {'type': 'string', 'description': 'Teléfono de contacto.'},
+                'horario_contacto': {'type': 'string', 'description': 'En eventos CORPORATIVOS: franja horaria en que el cliente prefiere que lo contacten.'},
+                'fecha_estimada': {'type': 'string', 'description': 'Fecha/horario estimado del evento, como lo diga el cliente.'},
+                'cantidad_personas': {'type': 'integer', 'description': 'Cantidad aproximada de asistentes.'},
+                'detalle': {'type': 'string', 'description': 'Requerimientos: catering, proyector/AV, disposición de mesas, presupuesto, etc.'},
+            },
+        },
+    },
+    {
         'name': 'crear_solicitud_evento',
         'description': 'Registra una solicitud de evento (corporativo, privado o social) y avisa al equipo. '
-                       'Llamala cuando ya juntaste los datos del evento. El local se contacta después.',
+                       'Llamala cuando ya juntaste los datos del evento (usá antes guardar_dato_evento para '
+                       'ir cargándolos). El local se contacta después.',
         'input_schema': {
             'type': 'object',
             'properties': {
@@ -121,6 +143,8 @@ def ejecutar(nombre: str, params: dict, telefono: str) -> dict:
             return _crear_pedido(params, telefono)
         if nombre == 'enviar_carta':
             return _enviar_carta(telefono)
+        if nombre == 'guardar_dato_evento':
+            return eventos.guardar_borrador(telefono, params)
         if nombre == 'crear_solicitud_evento':
             return eventos.crear_solicitud(telefono, params)
         if nombre == 'registrar_opinion':

@@ -10,8 +10,12 @@ from datetime import datetime, timedelta
 from database import SessionLocal
 from models import WhatsAppConversacion
 
-MAX_TURNOS = 12          # ~6 turnos usuario + 6 asistente
-VENTANA_MINUTOS = 30     # una consulta de hace horas no contamina el contexto
+MAX_TURNOS = 40          # ~20 turnos usuario + 20 asistente. Un formulario de
+                         # evento corporativo son ~12 idas y vueltas: la ventana
+                         # tiene que abarcarlo entero o el bot re-pregunta datos
+                         # que ya se cayeron del historial.
+VENTANA_MINUTOS = 45     # una consulta de hace horas no contamina el contexto,
+                         # pero un formulario largo puede tardar más de media hora
 TTL_HORAS = 24           # cleanup
 
 
