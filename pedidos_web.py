@@ -113,9 +113,13 @@ def confirmacion(pid):
     pedido = pedidos.obtener(pid)
     if not pedido or pedido.canal != 'web':
         abort(404)
+    mp_status = request.args.get('status') or request.args.get('collection_status')
+    pagado = pedido.estado in ('pagado', 'preparado', 'retirado') or mp_status == 'approved'
     return render_template('pedir/confirmacion.html',
                            nombre_local=config_store.get_config('nombre_local', 'SELQUET'),
-                           p=pedido, wa_link=_wa_link(pedido),
+                           p=pedido, pagado=pagado,
+                           wa_link=_wa_link(pedido),
+                           wa_confirmacion=_wa_confirmacion_link(pedido),
                            link_pago=_link_pago(pedido))
 
 
@@ -140,6 +144,23 @@ def _link_pago(pedido) -> str | None:
     if pedido.metodo_pago != 'mercadopago' or pedido.estado != 'pendiente_pago' or not pedido.mp_preference_id:
         return None
     return f'https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id={pedido.mp_preference_id}'
+
+
+def _numero_bot() -> str | None:
+    """Número de WhatsApp del bot (para que el cliente le escriba tras pagar)."""
+    n = (os.getenv('TWILIO_WA_NUMBER') or '').replace('whatsapp:', '').replace('+', '').strip()
+    return n or None
+
+
+def _wa_confirmacion_link(pedido) -> str | None:
+    """Link wa.me AL BOT para que el cliente confirme el pago y siga la charla
+    (el bot le pregunta si quiere algo más / algún comentario)."""
+    destino = _numero_bot()
+    if not destino:
+        return None
+    hora = f" (retiro {pedido.hora_retiro.strftime('%H:%M')})" if pedido.hora_retiro else ""
+    texto = f"¡Hola! Ya pagué mi pedido Nº {pedido.id} ✅{hora}. ¿Está todo listo?"
+    return f'https://wa.me/{destino}?text={quote(texto)}'
 
 
 def _wa_link(pedido) -> str | None:

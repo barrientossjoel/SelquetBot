@@ -10,6 +10,7 @@
   <header class="topbar">
     <div class="brand">{{ nombre_local }} <span>· Panel</span></div>
     <div class="topbar-right">
+      <button id="btn-avisos" type="button" class="btn-avisos" title="Activar avisos del navegador">🔔 Avisos</button>
       <form class="bot-toggle" method="post" action="{{ url_for('admin.bot_toggle') }}">
         <span class="bot-label">Bot</span>
         <button class="pill {{ 'on' if bot_activo else 'off' }}" title="Prender / apagar el bot">
@@ -35,5 +36,6 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  <script src="{{ url_for('static', filename='admin-notificaciones.js') }}" defer></script>
 </body>
 </html>

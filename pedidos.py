@@ -6,6 +6,7 @@ El webhook de MercadoPago lo pasa a 'pagado' (a cocinar).
 """
 from __future__ import annotations
 
+import os
 import unicodedata
 from datetime import datetime
 
@@ -103,9 +104,11 @@ def registrar_web(nombre: str, telefono: str, items: list[dict], total: int,
     if not es_mp:
         return {'ok': True, 'pedido_id': pedido_id, 'estado': 'confirmado', 'link': None}
 
+    base = (os.getenv('PUBLIC_BASE_URL') or os.getenv('MP_BASE_URL') or '').rstrip('/')
+    back_url = f'{base}/pedir/{pedido_id}?pago=ok' if base else None
     pref = pagos.crear_preferencia(
         [{'title': i['nombre'], 'quantity': i['cantidad'], 'unit_price': i['precio']} for i in items],
-        external_reference=pedido_id,
+        external_reference=pedido_id, back_url=back_url,
     )
     if not pref['ok']:
         return {'ok': False, 'pedido_id': pedido_id, 'mensaje': pref.get('mensaje', 'No pude generar el link de pago.')}

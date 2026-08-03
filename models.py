@@ -112,6 +112,7 @@ class Pedido(Base):
     hora_retiro = Column(DateTime)
     mp_preference_id = Column(String(80))
     mp_payment_id = Column(String(80))
+    seguimiento_enviado = Column(DateTime)   # cuándo se mandó el "¿cómo te fue?" (null = pendiente)
     creado_en = Column(DateTime, default=datetime.now)
 
 
@@ -123,6 +124,17 @@ class Opinion(Base):
     texto = Column(Text, nullable=False)
     tipo = Column(String(20), default='comentario')   # elogio | queja | comentario
     creado_en = Column(DateTime, default=datetime.now)
+
+
+class CambioPrecio(Base):
+    """Registro de cambios de precio del menú, para informarlos en el reporte diario."""
+    __tablename__ = 'cambios_precio'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    item_nombre = Column(String(200), nullable=False)
+    precio_anterior = Column(Integer, nullable=False)
+    precio_nuevo = Column(Integer, nullable=False)
+    creado_en = Column(DateTime, default=datetime.now, index=True)
 
 
 # ─── Eventos corporativos / privados / sociales ───

@@ -75,10 +75,12 @@ def _programar_reporte_diario():
         h, m = (int(x) for x in hora.split(':'))
     except ValueError:
         h, m = 23, 0
+    import seguimiento
     sched = BackgroundScheduler(daemon=True)
     sched.add_job(reporte.enviar, 'cron', hour=h, minute=m, id='reporte_diario')
+    sched.add_job(seguimiento.enviar_pendientes, 'interval', minutes=20, id='seguimiento_pedidos')
     sched.start()
-    print(f'[Scheduler] Reporte diario programado a las {h:02d}:{m:02d}')
+    print(f'[Scheduler] Reporte diario a las {h:02d}:{m:02d} · seguimiento post-pedido cada 20 min')
 
 
 app = create_app()

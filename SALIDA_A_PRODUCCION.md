@@ -11,9 +11,9 @@ El documento tiene 4 fases:
 3. **Subir a producción** — sacar la app de la compu local a internet.
 4. **Publicar el WhatsApp de SELQUET** — salir del modo prueba de Meta.
 
-> ⚠️ **Fases 3 y 4 no son inmediatas.** Requieren decidir hosting y pasar la
-> verificación de Meta (que la revisa Meta, puede tardar días). Las Fases 1 y 2
-> sí se hacen hoy.
+> ✅ **La Fase 3 (deploy) ya está hecha:** el sistema vive en internet en
+> `https://selquet.digitalimpulso.com`. Queda un único paso técnico (apuntar el webhook de
+> Meta) y la **Fase 4** (publicar el número de SELQUET), que la revisa Meta y puede tardar días.
 
 ---
 
@@ -21,14 +21,13 @@ El documento tiene 4 fases:
 
 | Componente | Estado |
 |---|---|
-| App (Flask) | Corriendo en la compu del equipo, puerto 8000 |
-| URL pública (túnel ngrok) | `https://groggily-suds-hesitate.ngrok-free.dev` |
-| WhatsApp | **Modo prueba de Meta** (sandbox): solo responde a números cargados en la lista de prueba |
+| App (Flask) | **Desplegada en internet 24/7** en un servidor propio (droplet DigitalOcean), gestionada con pm2 |
+| URL pública | `https://selquet.digitalimpulso.com` (con HTTPS) |
+| WhatsApp | **Modo prueba de Meta** (sandbox): solo responde a números cargados en la lista de prueba. *Falta apuntar el webhook de Meta al dominio nuevo (ver abajo).* |
 | MercadoPago | **Activo con token productivo** — la opción "Pagar con MercadoPago" ya aparece. ⚠️ **Los pagos son REALES (cobran de verdad).** Para probar, usar montos chicos. |
-| Base de datos | SQLite local (`selquet.db`) |
+| Base de datos | SQLite en el disco del servidor (persistente) |
 
-> La URL de ngrok es **temporal**: vale mientras la app + ngrok estén prendidos.
-> Si un link no carga, avisá que hay que reiniciar el túnel.
+> El sistema ya vive en internet: no depende de ninguna compu prendida ni de ngrok.
 
 ---
 
@@ -36,14 +35,14 @@ El documento tiene 4 fases:
 
 ## 1.0 · Preparación (una vez)
 
-1. **App y ngrok prendidos** (lo deja listo el equipo).
+1. **La app ya está online 24/7** en `https://selquet.digitalimpulso.com` (no hay que prender nada).
 2. **Cargar el número de Joel en la lista de prueba de Meta** (para poder chatear con el bot):
    - Entrar a https://developers.facebook.com → app **SelquetBot** → **WhatsApp → Configuración de la API**.
    - En la sección **"Para"** → **Administrar lista de destinatarios** → **Agregar número** → poner el celular de Joel.
    - Meta manda un código por WhatsApp → confirmarlo.
    - Anotar el **número de origen** que muestra esa pantalla (el "De"): es el número **al que Joel le escribe** para hablar con el bot.
 3. **Configurar el WhatsApp del local** para los pedidos web:
-   - Panel → https://groggily-suds-hesitate.ngrok-free.dev/admin (contraseña `selquet`).
+   - Panel → https://selquet.digitalimpulso.com/admin (contraseña: la que esté en `ADMIN_PASSWORD` del `.env`).
    - **Operación → Pedidos** → cargar *WhatsApp del local* (para la prueba, el celular de Joel) → Guardar.
 4. **Verificar que hay menú cargado**: Panel → **Menú** → tiene que haber productos con el interruptor en **"Hay"**.
 
@@ -81,8 +80,7 @@ El documento tiene 4 fases:
 
 ## 1.2 · Portal de pedidos web (`/pedir`)
 
-> Desde el celular, entrar a **https://groggily-suds-hesitate.ngrok-free.dev/pedir**
-> (la primera vez ngrok muestra una advertencia → **"Visit Site"**).
+> Desde el celular, entrar a **https://selquet.digitalimpulso.com/pedir**.
 
 | # | Caso | Qué tiene que pasar |
 |---|---|---|
@@ -128,34 +126,37 @@ Sale a producción **solo si todo esto da verde**:
 
 ---
 
-# FASE 3 — Subir a producción (deploy)
+# FASE 3 — Subir a producción (deploy) ✅ HECHO
 
-**Objetivo:** que el sistema viva en internet 24/7, sin depender de la compu local ni de ngrok.
+El sistema **ya está desplegado en internet 24/7** en `https://selquet.digitalimpulso.com`.
 
-> Esto lo ejecuta el equipo técnico (no es una prueba de Joel). Requiere **decidir el hosting**.
+Cómo quedó armado (para referencia del equipo):
+- **Servidor:** droplet DigitalOcean (`157.245.8.219`, Ubuntu). Convive con el proyecto viejo sin pisarlo.
+- **Proceso:** gunicorn gestionado con **pm2** (`selquet`), en `127.0.0.1:8000`, persistente (arranca solo si el server reinicia).
+- **Web:** nginx hace de puente para `selquet.digitalimpulso.com` con **HTTPS** (Let's Encrypt, renovación automática).
+- **Base:** SQLite en el disco del servidor (persistente). *Postgres está disponible en el droplet si más adelante se quiere migrar.*
+- **Secretos:** cargados en el `.env` del servidor; `ADMIN_PASSWORD` y `FLASK_SECRET_KEY` nuevos y fuertes.
 
-### Lo que hay que resolver
-1. **Hosting** — dónde corre la app. Opciones:
-   - **Railway / Render** (más rápido, deploy desde el repo, HTTPS incluido).
-   - **VPS propio** (Ubuntu + gunicorn + nginx + certbot) — más control.
-2. **Base de datos persistente** — hoy es SQLite local. En producción conviene **PostgreSQL**
-   (el código ya lo soporta cambiando `DATABASE_URL`; **no** dejar SQLite en un hosting que borra el disco al redeploy).
-3. **Dominio** — un dominio propio de SELQUET (ej. `pedidos.selquet.com`) con HTTPS.
+**Único pendiente para que el bot conteste desde producción:** apuntar el webhook de Meta al dominio nuevo (ver **"Paso final"** abajo). El webhook de MercadoPago ya queda automático (usa `PUBLIC_BASE_URL`).
 
-### Pasos (resumen)
-1. Subir el código a un repositorio (GitHub/GitLab).
-2. Crear el servicio en el hosting elegido y cargar las **variables de entorno** (las mismas del `.env`):
-   `ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, `WHATSAPP_PROVIDER`, `WHATSAPP_VERIFY_TOKEN`,
-   `WHATSAPP_API_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `MP_ACCESS_TOKEN`, `DATABASE_URL`,
-   `PUBLIC_BASE_URL` (= el dominio nuevo), `FLASK_SECRET_KEY`, `ADMIN_PASSWORD`, `SMTP_*`.
-3. Correr con un servidor de producción (**gunicorn**/**waitress**), no con `python app.py`.
-4. Poner el **dominio + HTTPS**.
-5. Actualizar los **webhooks** para que apunten al dominio nuevo (ya no a ngrok):
-   - **Meta**: webhook de WhatsApp → `https://TU-DOMINIO/webhook/whatsapp`.
-   - **MercadoPago**: `PUBLIC_BASE_URL` nuevo → el webhook de pagos queda en `https://TU-DOMINIO/webhook/mercadopago`.
-6. Cambiar la **contraseña del panel** (`ADMIN_PASSWORD`) por una real.
+### Actualizar el código en el futuro
+Cuando haya cambios, se vuelve a subir el código al droplet y se reinicia el proceso:
+`pm2 restart selquet`. (Ese redeploy lo puedo ejecutar yo.)
 
-> **El deploy concreto lo puedo ejecutar con el equipo** una vez elegido el hosting.
+---
+
+# Paso final — apuntar el webhook de Meta al dominio nuevo
+
+Para que el bot conteste desde el servidor (y no desde ngrok), hay que actualizar el webhook en Meta:
+
+1. https://developers.facebook.com → app **SelquetBot** → **WhatsApp → Configuración**.
+2. En **Webhook**, editar la **URL de devolución de llamada**:
+   `https://selquet.digitalimpulso.com/webhook/whatsapp`
+3. **Token de verificación:** `selquet_prueba_123`
+4. **Verificar y guardar** (Meta valida el token; ya probamos que responde OK).
+5. Confirmar que está **suscripto al campo `messages`**.
+
+Desde ese momento, los mensajes de WhatsApp los atiende el servidor de producción.
 
 ---
 
@@ -204,7 +205,8 @@ Sale a producción **solo si todo esto da verde**:
 |---|---|---|
 | Fase 1 y 2 (probar todo) | Joel | ✅ Sí |
 | Cargar número de Joel en lista de prueba | Quien administre la app en Meta | ✅ Sí |
-| Elegir hosting + Fase 3 (deploy a internet) | **Joel** (lo define cuando la prueba esté OK) | ⏳ Después de la Fase 2 |
+| Fase 3 (deploy a internet) | Ya hecho ✅ | ✅ Listo |
+| Apuntar el webhook de Meta al dominio nuevo | Quien administre la app en Meta | ✅ Sí (5 min) |
 | Fase 4 (publicar número SELQUET) | Admin del Business Manager de SELQUET | ⏳ Depende de la revisión de Meta |
 
 ---

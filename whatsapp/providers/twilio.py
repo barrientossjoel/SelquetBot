@@ -74,6 +74,23 @@ class TwilioProvider(WhatsAppProvider):
             print(f"[Twilio] Error enviando: {e}")
             return False
 
+    def send_document(self, telefono, link, filename='documento.pdf', caption=''):
+        """Envía un documento (PDF) por WhatsApp usando media_url de Twilio."""
+        if not self.client or not self.wa_from:
+            print(f"[Twilio] (sin credenciales) → documento a {telefono}: {link}")
+            return True
+        try:
+            self.client.messages.create(
+                from_=self.wa_from,
+                to=f"whatsapp:+{telefono.lstrip('+')}",
+                body=caption or '',
+                media_url=[link],
+            )
+            return True
+        except Exception as e:
+            print(f"[Twilio] Error enviando documento: {e}")
+            return False
+
 
 def _from_to_phone(from_raw: str) -> str:
     """'whatsapp:+5491176325106' → '5491176325106'"""

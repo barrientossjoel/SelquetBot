@@ -14,8 +14,9 @@ import requests
 MP_API = 'https://api.mercadopago.com'
 
 
-def crear_preferencia(items: list[dict], external_reference) -> dict:
-    """items: [{'title', 'quantity', 'unit_price'}]. Devuelve {ok, link, preference_id}."""
+def crear_preferencia(items: list[dict], external_reference, back_url=None) -> dict:
+    """items: [{'title', 'quantity', 'unit_price'}]. `back_url` es a dónde vuelve
+    el cliente tras pagar. Devuelve {ok, link, preference_id}."""
     token = os.getenv('MP_ACCESS_TOKEN', '')
     if not token:
         return {'ok': False, 'mensaje': 'MercadoPago no está configurado (falta MP_ACCESS_TOKEN).'}
@@ -32,7 +33,11 @@ def crear_preferencia(items: list[dict], external_reference) -> dict:
     base = (os.getenv('PUBLIC_BASE_URL') or os.getenv('MP_BASE_URL') or '').rstrip('/')
     if base:
         payload['notification_url'] = f'{base}/webhook/mercadopago'
-        payload['back_urls'] = {'success': base, 'failure': base, 'pending': base}
+    destino = back_url or base
+    if destino:
+        payload['back_urls'] = {'success': destino, 'failure': destino, 'pending': destino}
+    if back_url:
+        payload['auto_return'] = 'approved'   # vuelve solo al sitio tras aprobar
 
     try:
         r = requests.post(f'{MP_API}/checkout/preferences', json=payload,

@@ -3,8 +3,12 @@
 
 <div class="ped-ok">
   <div class="ped-check">✓</div>
-  <h1>¡Pedido registrado!</h1>
-  <p class="ped-numero">Pedido Nº {{ p.id }}</p>
+  <h1>{{ '¡Pago confirmado!' if pagado else '¡Pedido registrado!' }}</h1>
+  <div class="ped-num-box">
+    <span class="ped-num-label">Tu número de pedido</span>
+    <span class="ped-num-big">Nº {{ p.id }}</span>
+    <span class="ped-num-hint">Retiralo a nombre de <b>{{ p.nombre_cliente }}</b>{% if p.hora_retiro %} a las <b>{{ p.hora_retiro.strftime('%H:%M') }}</b>{% endif %} — mostrá o decí este número en el local.</span>
+  </div>
 </div>
 
 <section class="ped-resumen">
@@ -25,15 +29,20 @@
   </ul>
 </section>
 
-{% if link_pago %}
+{% if pagado %}
+  <p class="ped-aviso">✅ Tu pago se acreditó. Ya lo estamos preparando.</p>
+  {% if wa_confirmacion %}
+    <a class="ped-btn ped-btn-wa" href="{{ wa_confirmacion }}">Confirmá y seguí por WhatsApp</a>
+    <p class="ped-aviso">Escribinos por WhatsApp: te confirmamos el pedido y, si querés, sumás algo más.</p>
+  {% endif %}
+{% elif link_pago %}
   <a class="ped-btn ped-btn-pago" href="{{ link_pago }}">Pagar ahora con MercadoPago</a>
   <p class="ped-aviso">El pedido se manda a cocinar cuando se confirma el pago.</p>
 {% else %}
   <p class="ped-aviso">Lo abonás al retirarlo en el local.</p>
-{% endif %}
-
-{% if wa_link %}
-  <a class="ped-btn ped-btn-wa" href="{{ wa_link }}">Enviar mi pedido por WhatsApp</a>
+  {% if wa_link %}
+    <a class="ped-btn ped-btn-wa" href="{{ wa_link }}">Enviar mi pedido por WhatsApp</a>
+  {% endif %}
 {% endif %}
 
 <a class="ped-volver" href="{{ url_for('pedir.menu') }}">Hacer otro pedido</a>

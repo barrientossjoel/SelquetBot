@@ -39,6 +39,15 @@ def crear(fecha_hora: datetime, personas: int, nombre: str, wa_id: str) -> dict:
         return {'ok': False, **disp}
     db = SessionLocal()
     try:
+        # Anti-duplicado: si el modelo llama dos veces, no crea dos reservas iguales.
+        reciente = db.query(Reserva).filter(
+            Reserva.wa_id == wa_id, Reserva.fecha_hora == fecha_hora,
+            Reserva.personas == personas,
+            Reserva.creado_en >= datetime.now() - timedelta(minutes=3),
+        ).first()
+        if reciente:
+            return {'ok': True, 'reserva_id': reciente.id, 'duplicado': True,
+                    'mensaje': 'Esa reserva ya quedó registrada.'}
         reserva = Reserva(wa_id=wa_id, nombre=(nombre or '').strip() or None,
                           fecha_hora=fecha_hora, personas=personas, estado='nueva')
         db.add(reserva)

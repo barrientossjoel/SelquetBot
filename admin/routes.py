@@ -11,9 +11,10 @@ from flask import (Blueprint, Response, flash, redirect, render_template,
                    request, session, url_for)
 
 import config_store
+import novedades
 from database import SessionLocal
-from models import (DestinatarioEvento, Faq, MenuItem, MesaConfig, Opinion,
-                    Pedido, Reserva, SolicitudEvento)
+from models import (CambioPrecio, DestinatarioEvento, Faq, MenuItem, MesaConfig,
+                    Opinion, Pedido, Reserva, SolicitudEvento)
 from reservas import DIAS
 from telefono import normalizar_ar as _normalizar_wa
 
@@ -203,6 +204,9 @@ def menu_guardar_todo():
             nombre = (request.form.get(f'nombre_{item.id}') or '').strip()
             categoria = (request.form.get(f'categoria_{item.id}') or '').strip()
             precio = excel_import.limpiar_precio(request.form.get(f'precio_{item.id}'))
+            if precio is not None and precio != item.precio:
+                db.add(CambioPrecio(item_nombre=(nombre or item.nombre),
+                                    precio_anterior=item.precio, precio_nuevo=precio))
             if nombre:
                 item.nombre = nombre
             if categoria:
@@ -282,6 +286,11 @@ def menu_importar_confirmar():
         return redirect(url_for('admin.menu'))
     db = SessionLocal()
     try:
+        viejos = {m.nombre: m.precio for m in db.query(MenuItem).all()}
+        for i in items:
+            ant = viejos.get(i['nombre'])
+            if ant is not None and ant != i['precio']:
+                db.add(CambioPrecio(item_nombre=i['nombre'], precio_anterior=ant, precio_nuevo=i['precio']))
         db.query(MenuItem).delete(synchronize_session=False)
         db.add_all([
             MenuItem(nombre=i['nombre'], categoria=i['categoria'],
@@ -336,6 +345,29 @@ def mesa_nueva():
     return redirect(url_for('admin.mesas'))
 
 
+@admin_bp.route('/mesas/<int:cid>/editar', methods=['POST'])
+@login_required
+def mesa_editar(cid):
+    db = SessionLocal()
+    try:
+        fila = db.get(MesaConfig, cid)
+        if fila:
+            try:
+                fila.dia_semana = int(request.form['dia_semana'])
+                fila.hora_desde = request.form['hora_desde']
+                fila.hora_hasta = request.form['hora_hasta']
+                fila.cantidad_mesas = int(request.form.get('cantidad_mesas') or 1)
+                fila.capacidad = int(request.form.get('capacidad') or 4)
+                fila.duracion_min = int(request.form.get('duracion_min') or 90)
+                db.commit()
+                flash('Franja actualizada', 'ok')
+            except (KeyError, ValueError):
+                flash('Datos de la franja inválidos', 'error')
+    finally:
+        db.close()
+    return redirect(url_for('admin.mesas'))
+
+
 @admin_bp.route('/mesas/<int:cid>/borrar', methods=['POST'])
 @login_required
 def mesa_borrar(cid):
@@ -357,13 +389,22 @@ def mesa_borrar(cid):
 @login_required
 def operacion():
     import os
+    from datetime import datetime, timedelta
     vista = request.args.get('vista', 'pedidos')
+    fecha = (request.args.get('fecha') or '').strip()
     db = SessionLocal()
     try:
         if vista == 'reservas':
             filas = db.query(Reserva).order_by(Reserva.fecha_hora.desc()).all()
         elif vista == 'opiniones':
-            filas = db.query(Opinion).order_by(Opinion.creado_en.desc()).all()
+            q = db.query(Opinion).order_by(Opinion.creado_en.desc())
+            if fecha:
+                try:
+                    d = datetime.strptime(fecha, '%Y-%m-%d')
+                    q = q.filter(Opinion.creado_en >= d, Opinion.creado_en < d + timedelta(days=1))
+                except ValueError:
+                    pass
+            filas = q.all()
         else:
             vista = 'pedidos'
             filas = db.query(Pedido).order_by(Pedido.creado_en.desc()).all()
@@ -371,7 +412,7 @@ def operacion():
     finally:
         db.close()
     base = (os.getenv('PUBLIC_BASE_URL') or os.getenv('MP_BASE_URL') or '').rstrip('/')
-    return render_template('admin/operacion.html', active='operacion', vista=vista, filas=filas,
+    return render_template('admin/operacion.html', active='operacion', vista=vista, filas=filas, fecha=fecha,
                            link_pedir=(f'{base}/pedir' if base else url_for('pedir.menu', _external=True)),
                            whatsapp_local=config_store.get_config('whatsapp_local', ''))
 
@@ -382,6 +423,13 @@ def pedidos_config():
     config_store.set_config({'whatsapp_local': _normalizar_wa(request.form.get('whatsapp_local')) or ''})
     flash('WhatsApp del local guardado', 'ok')
     return redirect(url_for('admin.operacion', vista='pedidos'))
+
+
+@admin_bp.route('/notificaciones')
+@login_required
+def notificaciones_estado():
+    """Estado de novedades para el aviso pop-up del panel (JSON)."""
+    return novedades.estado()
 
 
 @admin_bp.route('/reservas/<int:rid>/estado', methods=['POST'])

@@ -22,18 +22,25 @@
   {% if not filas %}
     <p class="empty">Todavía no hay franjas. Sin franjas, el bot responde que no toma reservas.</p>
   {% else %}
+  <p class="hint">Editá cualquier valor y tocá <b>Guardar</b> en esa fila.</p>
   <table>
-    <thead><tr><th>Día</th><th>Desde</th><th>Hasta</th><th>Mesas</th><th>Capacidad</th><th>Duración</th><th></th></tr></thead>
+    <thead><tr><th>Día</th><th>Desde</th><th>Hasta</th><th>Mesas</th><th>Capacidad</th><th>Duración (min)</th><th></th></tr></thead>
     <tbody>
       {% for f in filas %}
         <tr>
-          <td>{{ dias[f.dia_semana] }}</td>
-          <td>{{ f.hora_desde }}</td>
-          <td>{{ f.hora_hasta }}</td>
-          <td>{{ f.cantidad_mesas }}</td>
-          <td>{{ f.capacidad }}</td>
-          <td>{{ f.duracion_min }} min</td>
+          <td>
+            <select name="dia_semana" form="mesa-{{ f.id }}">
+              {% for i in range(7) %}<option value="{{ i }}" {{ 'selected' if i == f.dia_semana }}>{{ dias[i] }}</option>{% endfor %}
+            </select>
+          </td>
+          <td><input type="time" name="hora_desde" value="{{ f.hora_desde }}" form="mesa-{{ f.id }}" style="width:110px"></td>
+          <td><input type="time" name="hora_hasta" value="{{ f.hora_hasta }}" form="mesa-{{ f.id }}" style="width:110px"></td>
+          <td><input type="number" name="cantidad_mesas" min="1" value="{{ f.cantidad_mesas }}" form="mesa-{{ f.id }}" style="width:64px"></td>
+          <td><input type="number" name="capacidad" min="1" value="{{ f.capacidad }}" form="mesa-{{ f.id }}" style="width:64px"></td>
+          <td><input type="number" name="duracion_min" min="15" step="15" value="{{ f.duracion_min }}" form="mesa-{{ f.id }}" style="width:80px"></td>
           <td class="acciones">
+            <form id="mesa-{{ f.id }}" method="post" action="{{ url_for('admin.mesa_editar', cid=f.id) }}"></form>
+            <button class="btn small primary" form="mesa-{{ f.id }}">Guardar</button>
             <form method="post" action="{{ url_for('admin.mesa_borrar', cid=f.id) }}"
                   onsubmit="return confirm('¿Borrar esta franja?')">
               <button class="btn small danger">Borrar</button>

@@ -5,6 +5,8 @@ resumen a cada destinatario configurado, por WhatsApp y por email.
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 import notificaciones
 from database import SessionLocal
 from models import BorradorEvento, DestinatarioEvento, SolicitudEvento
@@ -101,6 +103,17 @@ def estado_borrador_texto(wa_id: str) -> str | None:
     return texto
 
 
+def borrador_completo(wa_id: str) -> bool:
+    """True si hay un borrador con todos los datos requeridos (listo para registrar)."""
+    db = SessionLocal()
+    try:
+        b = db.query(BorradorEvento).filter_by(wa_id=wa_id).one_or_none()
+        actual = {c: getattr(b, c) for c in _CAMPOS} if b else None
+    finally:
+        db.close()
+    return bool(actual) and not _faltantes(actual)
+
+
 def descartar_borrador(wa_id: str) -> None:
     db = SessionLocal()
     try:
@@ -121,6 +134,20 @@ def crear_solicitud(wa_id: str, datos: dict) -> dict:
         # Lo que llega en la tool pisa al borrador; el borrador cubre lo que se
         # haya caído del historial.
         merged = {**base, **_solo_presentes(datos)}
+        # Anti-duplicado: si el modelo llama dos veces, no crea dos solicitudes iguales.
+        reciente = db.query(SolicitudEvento).filter(
+            SolicitudEvento.wa_id == wa_id,
+            SolicitudEvento.tipo_evento == merged.get('tipo_evento'),
+            SolicitudEvento.fecha_estimada == merged.get('fecha_estimada'),
+            SolicitudEvento.cantidad_personas == merged.get('cantidad_personas'),
+            SolicitudEvento.creado_en >= datetime.now() - timedelta(minutes=3),
+        ).first()
+        if reciente:
+            if b is not None:
+                db.delete(b)
+                db.commit()
+            return {'ok': True, 'solicitud_id': reciente.id, 'duplicado': True,
+                    'mensaje': 'Esa solicitud ya quedó registrada.'}
         solicitud = SolicitudEvento(wa_id=wa_id, **{c: merged.get(c) for c in _CAMPOS})
         db.add(solicitud)
         if b is not None:

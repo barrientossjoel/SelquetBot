@@ -2,6 +2,8 @@
 {% block content %}
 
 {% if error %}<div class="ped-error">{{ error }}</div>{% endif %}
+
+<p class="ped-intro">Elegí una categoría, sumá lo que quieras y confirmá tu pedido.</p>
 {% if pedido_minimo %}<p class="ped-min">Pedido mínimo: {{ pedido_minimo | pesos }}</p>{% endif %}
 
 <form method="post" action="{{ url_for('pedir.crear') }}" id="ped-form">
@@ -12,21 +14,28 @@
   {% endif %}
 
   {% for categoria, items in categorias %}
-    <section class="ped-cat">
-      <h2>{{ categoria }}</h2>
-      {% for it in items %}
-        <div class="ped-item" data-id="{{ it.id }}" data-nombre="{{ it.nombre }}" data-precio="{{ it.precio }}">
-          <div class="ped-item-info">
-            <span class="ped-item-nombre">{{ it.nombre }}</span>
-            <span class="ped-item-precio">{{ it.precio | pesos }}</span>
+    <section class="ped-cat" data-cat>
+      <button type="button" class="ped-cat-head" aria-expanded="false">
+        <span class="ped-cat-name">{{ categoria|title }}</span>
+        <span class="ped-cat-sel" hidden>0</span>
+        <span class="ped-cat-count">{{ items|length }}</span>
+        <span class="ped-cat-chev" aria-hidden="true">⌄</span>
+      </button>
+      <div class="ped-cat-body">
+        {% for it in items %}
+          <div class="ped-item" data-nombre="{{ it.nombre }}" data-precio="{{ it.precio }}">
+            <div class="ped-item-info">
+              <span class="ped-item-nombre">{{ it.nombre }}</span>
+              <span class="ped-item-precio">{{ it.precio | pesos }}</span>
+            </div>
+            <div class="ped-qty">
+              <button type="button" class="ped-menos" aria-label="Quitar">−</button>
+              <span class="ped-cant">0</span>
+              <button type="button" class="ped-mas" aria-label="Agregar">+</button>
+            </div>
           </div>
-          <div class="ped-qty">
-            <button type="button" class="ped-menos" aria-label="Quitar">−</button>
-            <span class="ped-cant">0</span>
-            <button type="button" class="ped-mas" aria-label="Agregar">+</button>
-          </div>
-        </div>
-      {% endfor %}
+        {% endfor %}
+      </div>
     </section>
   {% endfor %}
 
@@ -60,31 +69,47 @@
 
 <script>
   (function () {
-    const form = document.getElementById('ped-form');
-    const totalEl = document.getElementById('ped-total');
-    const confirmar = document.getElementById('ped-confirmar');
-    const itemsInput = document.getElementById('items_json');
+    var form = document.getElementById('ped-form');
+    var totalEl = document.getElementById('ped-total');
+    var confirmar = document.getElementById('ped-confirmar');
+    var itemsInput = document.getElementById('items_json');
 
     function pesos(n) { return '$' + n.toLocaleString('es-AR'); }
 
     function recalcular() {
-      let total = 0;
-      const items = [];
-      form.querySelectorAll('.ped-item').forEach(function (row) {
-        const cant = parseInt(row.querySelector('.ped-cant').textContent, 10) || 0;
-        if (cant > 0) {
-          const precio = parseInt(row.dataset.precio, 10) || 0;
-          total += precio * cant;
-          items.push({ nombre: row.dataset.nombre, cantidad: cant });
-        }
+      var total = 0, items = [];
+      form.querySelectorAll('.ped-cat').forEach(function (sec) {
+        var seleccionados = 0;
+        sec.querySelectorAll('.ped-item').forEach(function (row) {
+          var cant = parseInt(row.querySelector('.ped-cant').textContent, 10) || 0;
+          if (cant > 0) {
+            var precio = parseInt(row.dataset.precio, 10) || 0;
+            total += precio * cant;
+            seleccionados += cant;
+            items.push({ nombre: row.dataset.nombre, cantidad: cant });
+          }
+        });
+        var badge = sec.querySelector('.ped-cat-sel');
+        if (seleccionados > 0) { badge.textContent = seleccionados; badge.hidden = false; }
+        else { badge.hidden = true; }
       });
       totalEl.textContent = pesos(total);
       itemsInput.value = JSON.stringify(items);
       confirmar.disabled = items.length === 0;
     }
 
+    // Acordeón: abrir/cerrar categorías
+    form.querySelectorAll('.ped-cat-head').forEach(function (head) {
+      head.addEventListener('click', function () {
+        var abierto = head.getAttribute('aria-expanded') === 'true';
+        head.setAttribute('aria-expanded', abierto ? 'false' : 'true');
+        head.parentElement.classList.toggle('open', !abierto);
+      });
+    });
+
+    // Steppers
     form.querySelectorAll('.ped-item').forEach(function (row) {
-      const cantEl = row.querySelector('.ped-cant');
+      var cantEl = row.querySelector('.ped-cant');
       row.querySelector('.ped-mas').addEventListener('click', function () {
         cantEl.textContent = (parseInt(cantEl.textContent, 10) || 0) + 1;
         recalcular();

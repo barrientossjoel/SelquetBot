@@ -80,7 +80,8 @@ TOOLS = [
         'description': 'Guarda en un borrador los datos de un evento a medida que el cliente los va dando, '
                        'para no perderlos aunque la charla se alargue. Llamala apenas captures uno o más '
                        'datos (podés mandar solo los que tengas). Devuelve qué datos ya hay y cuáles faltan. '
-                       'Cuando no falte ninguno, recién ahí usá crear_solicitud_evento.',
+                       'IMPORTANTE: esta tool NO registra la solicitud ni avisa al equipo, solo guarda datos '
+                       'parciales. Para REGISTRAR el evento SIEMPRE tenés que llamar después a crear_solicitud_evento.',
         'input_schema': {
             'type': 'object',
             'properties': {
@@ -187,19 +188,60 @@ def _enviar_carta(telefono: str) -> dict:
 
 
 def _registrar_opinion(texto: str, tipo: str, telefono: str) -> dict:
-    if not texto.strip():
+    texto = texto.strip()
+    if not texto:
         return {'ok': False, 'mensaje': 'Falta el texto de la opinión.'}
+    tipo = tipo if tipo in ('elogio', 'queja', 'comentario') else 'comentario'
     db = SessionLocal()
     try:
-        db.add(Opinion(
-            wa_id=telefono,
-            texto=texto.strip(),
-            tipo=tipo if tipo in ('elogio', 'queja', 'comentario') else 'comentario',
-        ))
+        db.add(Opinion(wa_id=telefono, texto=texto, tipo=tipo))
         db.commit()
-        return {'ok': True, 'mensaje': 'Comentario registrado. ¡Gracias!'}
     except Exception:
         db.rollback()
         return {'ok': False, 'mensaje': 'No pude guardar el comentario.'}
     finally:
         db.close()
+
+    if tipo == 'queja':
+        _alertar_queja(telefono, texto)
+        return {'ok': True, 'tipo': 'queja',
+                'instruccion': ('Mostrá empatía, decile que lamentás lo que pasó y que ya se lo pasás a '
+                                'nuestra gerencia de atención al cliente para resolverlo. No prometas nada puntual.')}
+    if tipo == 'elogio':
+        review = _review_url()
+        instr = 'Agradecé con calidez.'
+        if review:
+            instr += f' Invitalo a dejar su calificación en Google con este link (pasáselo tal cual): {review}'
+        return {'ok': True, 'tipo': 'elogio', 'review_url': review, 'instruccion': instr}
+
+    return {'ok': True, 'tipo': 'comentario', 'instruccion': 'Agradecé el comentario.'}
+
+
+def _review_url() -> str:
+    from config_store import get_config
+    return get_config('google_review_url', '').strip()
+
+
+def _alertar_queja(telefono: str, texto: str) -> None:
+    """Avisa a los jefes (WhatsApp + email) de una queja, con el contacto del cliente."""
+    import re
+
+    import config_store
+    import notificaciones
+
+    def _lista(v):
+        return [x.strip() for x in re.split(r'[,\n;]+', v or '') if x.strip()]
+
+    nombre_local = config_store.get_config('nombre_local', 'SELQUET')
+    msg = (f'⚠️ *Queja de un cliente en {nombre_local}*\n'
+           f'Contacto (WhatsApp): {telefono}\n\n"{texto}"\n\n'
+           f'Comunicate con el cliente para resolverlo.')
+    try:
+        from .providers import get_provider
+        provider = get_provider()
+        for numero in _lista(config_store.get_config('jefe_whatsapp', '')):
+            provider.send_message(numero, msg)
+    except Exception as e:
+        print(f'[Alerta queja] Error WhatsApp: {e}')
+    for email in _lista(config_store.get_config('jefe_email', '')):
+        notificaciones.enviar_email(email, f'Queja de un cliente — {nombre_local}', msg)

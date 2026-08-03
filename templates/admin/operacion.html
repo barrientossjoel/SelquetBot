@@ -99,9 +99,16 @@
     {% endif %}
 
   {% else %}
-    <h2>Opiniones</h2>
+    <h2>Opiniones y comentarios</h2>
+    <form method="get" class="row-form" style="margin-bottom:14px; align-items:center">
+      <input type="hidden" name="vista" value="opiniones">
+      <label class="hint">Ver comentarios del día:</label>
+      <input type="date" name="fecha" value="{{ fecha }}" style="flex:0 0 170px">
+      <button class="btn primary">Ver</button>
+      {% if fecha %}<a class="btn ghost" href="{{ url_for('admin.operacion', vista='opiniones') }}">Ver todos</a>{% endif %}
+    </form>
     {% if not filas %}
-      <p class="empty">No hay opiniones todavía.</p>
+      <p class="empty">{{ 'No hubo comentarios ese día.' if fecha else 'No hay opiniones todavía.' }}</p>
     {% else %}
     <table>
       <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>Texto</th></tr></thead>

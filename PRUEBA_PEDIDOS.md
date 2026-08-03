@@ -13,19 +13,18 @@ No hace falta instalar nada: se prueba desde el celular y una compu.
 
 | Qué | Dónde |
 |---|---|
-| **Web de pedidos** (lo que ve el cliente) | https://groggily-suds-hesitate.ngrok-free.dev/pedir |
-| **Panel de administración** | https://groggily-suds-hesitate.ngrok-free.dev/admin |
+| **Web de pedidos** (lo que ve el cliente) | https://selquet.digitalimpulso.com/pedir |
+| **Panel de administración** | https://selquet.digitalimpulso.com/admin |
 | Contraseña del panel | `selquet` |
 
-> La dirección `groggily-suds-hesitate.ngrok-free.dev` es un túnel temporal de ngrok:
-> funciona mientras el equipo tenga la app + ngrok prendidos. Si algún link "no carga",
-> avisá que probablemente haya que reiniciar el túnel.
+> El sistema está publicado en internet 24/7 en `selquet.digitalimpulso.com` (servidor propio).
+> No depende de ninguna compu prendida.
 
 ---
 
 ## Paso 1 — Configurar el WhatsApp del local (una sola vez)
 
-1. Entrá al **panel**: https://groggily-suds-hesitate.ngrok-free.dev/admin
+1. Entrá al **panel**: https://selquet.digitalimpulso.com/admin
 2. Contraseña: `selquet`
 3. Andá a la solapa **Operación → Pedidos**
 4. En el recuadro **"Pedidos online"**, campo *WhatsApp del local*:
@@ -39,8 +38,7 @@ En ese mismo recuadro está el **link para compartir** (el de `/pedir`).
 
 ## Paso 2 — Hacer un pedido como cliente (desde el celular)
 
-1. Abrí en el celular: **https://groggily-suds-hesitate.ngrok-free.dev/pedir**
-   - *La primera vez, ngrok muestra una pantalla de advertencia → tocá **"Visit Site"**. Es normal.*
+1. Abrí en el celular: **https://selquet.digitalimpulso.com/pedir**
 2. Sumá productos con el botón **+** (el total se actualiza abajo en vivo).
 3. Bajá y completá:
    - **Tu nombre**
@@ -67,7 +65,7 @@ En ese mismo recuadro está el **link para compartir** (el de `/pedir`).
    Retiro: 21:00
    Pago: al retirar
    A nombre de: Joel
-   https://groggily-suds-hesitate.ngrok-free.dev/pedir/12
+   https://selquet.digitalimpulso.com/pedir/12
    ```
 4. Enviá el mensaje al número del local (el que cargaste en el Paso 1).
 

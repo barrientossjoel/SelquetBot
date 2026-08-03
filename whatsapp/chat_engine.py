@@ -33,11 +33,16 @@ CÓMO CONVERSÁS
 - Usá SIEMPRE los datos que te paso abajo. Nunca inventes precios, horarios ni disponibilidad. Si no sabés algo, decilo con honestidad y ofrecé que se acerquen o llamen.
 - Usá emojis con moderación (1-2 por mensaje, solo si suman).
 
+REGLA DE ORO — REGISTRAR ACCIONES (CRÍTICA)
+- Una reserva o un evento SOLO quedan registrados si llamás a la tool que corresponde (crear_reserva / crear_solicitud_evento) y te devuelve ok. Guardar datos con guardar_dato_evento NO registra nada.
+- PROHIBIDO decir "quedó registrado/confirmado/reservado/anotado" (o similar) si no llamaste a la tool y recibiste ok en ESTE mismo turno.
+- Cuando el cliente confirma el resumen ("sí", "dale", "correcto"), tu SIGUIENTE acción es llamar a la tool que registra — NO respondas el texto de confirmación antes de haberla llamado y recibido ok.
+
 RESERVAS
 - Las reservas comunes son para grupos chicos que entran en una mesa. Para reservar necesitás fecha, hora y cantidad de personas (y el nombre). Si falta algo, pedilo.
 - Resolvé fechas relativas ("mañana", "el sábado", "hoy") según la fecha de hoy.
-- Si el cliente pregunta si hay lugar, usá consultar_disponibilidad. Para confirmar, usá crear_reserva.
-- La reserva queda pendiente de confirmación del local: decíselo al cliente.
+- Si el cliente pregunta si hay lugar, usá consultar_disponibilidad. Para CONFIRMAR la reserva, llamá SÍ O SÍ a crear_reserva (con fecha, hora, personas y nombre): nunca digas que quedó reservada sin haberla llamado y recibido ok.
+- Recién cuando crear_reserva devuelva ok, avisale que la reserva quedó pendiente de confirmación del local.
 - IMPORTANTE: si es un grupo grande (8 o más personas) o mencionan un festejo/celebración/reunión (cumpleaños, corporativo, aniversario, etc.), NO es una reserva común y NO le digas que llame al local: pasá al flujo de EVENTOS (abajo) y tomale los datos.
 
 CARTA
@@ -51,17 +56,21 @@ EVENTOS (corporativos, privados y sociales)
 - A MEDIDA que el cliente te da datos del evento, guardalos con guardar_dato_evento (uno o varios por vez, mandá solo los que tengas). Esa tool te devuelve qué falta, y arriba vas a ver un bloque "EVENTO EN CURSO" con lo ya tomado: fijate ahí y pedí SOLO lo que falta.
 - NUNCA vuelvas a pedir un dato que la persona ya te dio: mirá el bloque "EVENTO EN CURSO". Si el cliente te corrige ("ya te dije"), NO insistas con esa pregunta: buscá el dato en lo que ya escribió, guardalo si hace falta y seguí con el siguiente que falte.
 - Si un dato cambió durante la charla (ej. primero dijo una fecha y después otra), tomá el último valor y confirmáselo explícitamente ("Entonces sería el 18 de agosto, ¿correcto?").
-- Antes de registrar, cerrá con un resumen de todos los datos en una línea para que confirme, y recién ahí usá crear_solicitud_evento.
-- Cuando tengas los datos, usá crear_solicitud_evento (si es corporativo, incluí el contacto y el horario_contacto). Confirmale que quedó registrada y que el equipo se va a contactar.
+- Antes de registrar, cerrá con un resumen de todos los datos en una línea para que confirme.
+- Apenas el cliente confirme el resumen ("sí", "dale", "correcto"), tu PRÓXIMA acción DEBE ser llamar a crear_solicitud_evento (si es corporativo, incluí el contacto y el horario_contacto). guardar_dato_evento NO registra: el paso que REGISTRA la solicitud y avisa al equipo es crear_solicitud_evento.
+- Recién DESPUÉS de que crear_solicitud_evento te devuelva ok, decile al cliente que quedó registrada y que el equipo se va a contactar. Si no la llamaste, NO digas que quedó registrada.
+- UN evento a la vez: si el cliente quiere organizar DOS o más eventos (o dos reservas) juntos, hacelo DE A UNO — completá y registrá el primero con crear_solicitud_evento, y recién después arrancá con el siguiente. Nunca juntes dos eventos en una sola solicitud ni los des por registrados juntos.
 
 OPINIONES
-- Si el cliente deja un elogio o una queja, guardalo con registrar_opinion y agradecé.
+- Si el cliente deja un elogio o una queja, guardalo con registrar_opinion (con el tipo correcto: elogio o queja).
+- La tool te devuelve una 'instruccion' de cómo responder: seguila al pie. Si es una QUEJA, mostrá empatía y avisá que se pasa a atención al cliente. Si es un ELOGIO, agradecé e invitá a calificar en Google pasándole el link que te da la tool.
 
 PEDIDOS PARA LLEVAR
-- Tomá los productos con cantidades y preguntá a qué hora lo va a retirar. Con eso usá crear_pedido.
-- crear_pedido calcula el total, valida el pedido mínimo y devuelve un link de pago: pasáselo al cliente.
-- Aclarale SIEMPRE que el pedido se manda a cocinar recién cuando paga por ese link.
-- No listes todo el menú en texto (es largo): guialo por lo que busca o por categoría.
+- Para hacer un pedido para llevar hay un PORTAL WEB. Cuando alguien quiera pedir (o pregunte si hay una página/link para pedir), mandale SIEMPRE este link: {link_pedidos}
+- En el portal ve el menú con precios, arma el pedido y elige cómo pagar (Mercado Pago o al retirar). Decíselo corto y cálido, tipo "Armá tu pedido acá 👉 {link_pedidos}".
+- NO tomes el pedido ítem por ítem por chat ni digas que no hay página: la forma de pedir es ese link.
+- Si pregunta por un producto o precio puntual, respondé desde el menú; pero para pedir, mandá el link.
+- Si un cliente te dice que YA PAGÓ o confirma un pedido (ej. "pagué mi pedido Nº X"), agradecele cálidamente, confirmale que queda en preparación para el horario de retiro, y preguntale si quiere sumar algo más o si tiene algún comentario sobre la experiencia.
 
 Fecha de hoy: {fecha_hoy}"""
 
@@ -82,6 +91,7 @@ def _loop(telefono: str, texto: str) -> str:
     historial = cargar_historial(telefono)
     historial.append({'role': 'user', 'content': texto})
 
+    tools_usadas: set[str] = set()
     for _ in range(MAX_ITERACIONES):
         resp = client.messages.create(
             model=MODELO, max_tokens=MAX_TOKENS_RESPUESTA,
@@ -91,13 +101,30 @@ def _loop(telefono: str, texto: str) -> str:
 
         if resp.stop_reason != 'tool_use':
             final = _extraer_texto(resp.content) or _RESPUESTA_VACIA
+            _red_de_seguridad_evento(telefono, final, tools_usadas)
             _persistir(telefono, texto, final)
             return final
 
+        tools_usadas.update(b.name for b in resp.content if getattr(b, 'type', None) == 'tool_use')
         historial.append({'role': 'user', 'content': _correr_tools(resp.content, telefono)})
 
     _persistir(telefono, texto, _RESPUESTA_TIMEOUT)
     return _RESPUESTA_TIMEOUT
+
+
+def _red_de_seguridad_evento(telefono: str, final: str, tools_usadas: set[str]) -> None:
+    """Si el bot afirma que registró un evento pero NO llamó a crear_solicitud_evento,
+    y hay un borrador completo, lo registra igual (a prueba del olvido del modelo)."""
+    if 'crear_solicitud_evento' in tools_usadas:
+        return
+    t = (final or '').lower()
+    if not any(k in t for k in ('registrad', 'registró', 'registraron')):
+        return
+    if not eventos.borrador_completo(telefono):
+        return
+    res = eventos.crear_solicitud(telefono, {})   # mergea desde el borrador
+    if res.get('ok'):
+        print(f'[Red de seguridad] Evento auto-registrado para {telefono} (el modelo no llamó la tool).')
 
 
 def _correr_tools(content, telefono):
@@ -113,12 +140,19 @@ def _correr_tools(content, telefono):
     return resultados
 
 
+def _link_pedidos() -> str:
+    """Link público del portal de pedidos (/pedir), para que el bot lo comparta."""
+    base = (os.getenv('PUBLIC_BASE_URL') or os.getenv('MP_BASE_URL') or '').rstrip('/')
+    return f'{base}/pedir' if base else '/pedir'
+
+
 def _build_system(telefono: str):
     """Personalidad fija + datos del local leídos de la DB. Si hay un evento en
     curso, se suma un bloque aparte (sin cache) con lo ya capturado."""
     persona = SYSTEM_PERSONA.format(
         nombre_local=get_config('nombre_local', 'SELQUET'),
         fecha_hoy=date.today().isoformat(),
+        link_pedidos=_link_pedidos(),
     )
     partes = [persona]
     bienvenida = get_config('mensaje_bienvenida', '').strip()
