@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 import notificaciones
+import notificaciones_panel
 from database import SessionLocal
 from models import BorradorEvento, DestinatarioEvento, SolicitudEvento
 
@@ -155,6 +156,9 @@ def crear_solicitud(wa_id: str, datos: dict) -> dict:
         db.commit()
         sid = solicitud.id
         resumen = _resumen(solicitud)
+        notif_msg = f'Nueva solicitud de evento: {solicitud.tipo_evento or "evento"} · {solicitud.nombre_contacto or wa_id}'
+        if solicitud.cantidad_personas:
+            notif_msg += f' · {solicitud.cantidad_personas} pers'
     except Exception as e:
         db.rollback()
         print(f"[Eventos] Error creando solicitud: {e}")
@@ -162,6 +166,7 @@ def crear_solicitud(wa_id: str, datos: dict) -> dict:
     finally:
         db.close()
 
+    notificaciones_panel.crear('evento', notif_msg)
     enviados = _notificar_destinatarios(resumen)
     return {'ok': True, 'solicitud_id': sid, 'notificados': enviados,
             'mensaje': 'Solicitud registrada. El equipo de eventos se va a contactar a la brevedad.'}

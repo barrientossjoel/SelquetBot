@@ -86,6 +86,18 @@ def _programar_reporte_diario():
 app = create_app()
 
 
+def _puerto_libre(puerto: int, intentos: int = 20) -> int:
+    """Devuelve el primer puerto libre a partir de `puerto` (por si está ocupado)."""
+    import socket
+    for p in range(puerto, puerto + intentos):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('127.0.0.1', p)) != 0:   # nadie escuchando → libre
+                return p
+        print(f'[App] Puerto {p} ocupado, pruebo el siguiente…')
+    raise SystemExit(f'No encontré un puerto libre entre {puerto} y {puerto + intentos}.')
+
+
 if __name__ == '__main__':
-    puerto = int(os.getenv('PORT', '8000'))
+    puerto = _puerto_libre(int(os.getenv('PORT', '8000')))
+    print(f'[App] SELQUET escuchando en http://localhost:{puerto}  (admin: /admin)')
     app.run(host='0.0.0.0', port=puerto, debug=True, use_reloader=False)

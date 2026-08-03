@@ -10,9 +10,11 @@ import os
 import unicodedata
 from datetime import datetime
 
+import notificaciones_panel
 import pagos
 from config_store import get_config
 from database import SessionLocal
+from formato import pesos
 from models import MenuItem, Pedido
 
 
@@ -100,6 +102,8 @@ def registrar_web(nombre: str, telefono: str, items: list[dict], total: int,
         pedido_id = pedido.id
     finally:
         db.close()
+
+    notificaciones_panel.crear('pedido', f'Nuevo pedido web: {nombre} · {pesos(total)}')
 
     if not es_mp:
         return {'ok': True, 'pedido_id': pedido_id, 'estado': 'confirmado', 'link': None}

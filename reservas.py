@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import notificaciones_panel
 from database import SessionLocal
 from models import MesaConfig, Reserva
 
@@ -52,7 +53,11 @@ def crear(fecha_hora: datetime, personas: int, nombre: str, wa_id: str) -> dict:
                           fecha_hora=fecha_hora, personas=personas, estado='nueva')
         db.add(reserva)
         db.commit()
-        return {'ok': True, 'reserva_id': reserva.id,
+        reserva_id = reserva.id
+        notificaciones_panel.crear('reserva',
+            f'Nueva reserva: {(nombre or "").strip() or wa_id} · {personas} pers · '
+            f'{fecha_hora.strftime("%d/%m %H:%M")}')
+        return {'ok': True, 'reserva_id': reserva_id,
                 'mensaje': f'Reserva registrada para {personas} persona/s el '
                            f'{fecha_hora.strftime("%d/%m a las %H:%M")}. '
                            f'Queda pendiente de que el local la confirme.'}

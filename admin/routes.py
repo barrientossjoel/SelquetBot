@@ -11,7 +11,7 @@ from flask import (Blueprint, Response, flash, redirect, render_template,
                    request, session, url_for)
 
 import config_store
-import novedades
+import notificaciones_panel
 from database import SessionLocal
 from models import (CambioPrecio, DestinatarioEvento, Faq, MenuItem, MesaConfig,
                     Opinion, Pedido, Reserva, SolicitudEvento)
@@ -425,11 +425,12 @@ def pedidos_config():
     return redirect(url_for('admin.operacion', vista='pedidos'))
 
 
-@admin_bp.route('/notificaciones')
+@admin_bp.route('/notificaciones/pendientes')
 @login_required
-def notificaciones_estado():
-    """Estado de novedades para el aviso pop-up del panel (JSON)."""
-    return novedades.estado()
+def notificaciones_pendientes():
+    """Notificaciones nuevas para la campana del panel (polling). Se marcan como
+    entregadas al leerlas, para no repetirlas."""
+    return {'notificaciones': notificaciones_panel.pendientes()}
 
 
 @admin_bp.route('/reservas/<int:rid>/estado', methods=['POST'])

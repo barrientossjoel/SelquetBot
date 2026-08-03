@@ -137,6 +137,18 @@ class CambioPrecio(Base):
     creado_en = Column(DateTime, default=datetime.now, index=True)
 
 
+class NotificacionPanel(Base):
+    """Aviso para el panel (nueva reserva, pedido o evento). El navegador las
+    consume por polling y se marcan `notificado` para no repetirlas."""
+    __tablename__ = 'notificaciones_panel'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tipo = Column(String(20), nullable=False, default='info')   # pedido | reserva | evento
+    mensaje = Column(Text, nullable=False)
+    notificado = Column(Boolean, default=False, nullable=False, index=True)
+    creado_en = Column(DateTime, default=datetime.now)
+
+
 # ─── Eventos corporativos / privados / sociales ───
 
 class DestinatarioEvento(Base):
