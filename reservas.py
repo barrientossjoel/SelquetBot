@@ -55,8 +55,8 @@ def crear(fecha_hora: datetime, personas: int, nombre: str, wa_id: str) -> dict:
         db.commit()
         reserva_id = reserva.id
         notificaciones_panel.crear('reserva',
-            f'Nueva reserva: {(nombre or "").strip() or wa_id} · {personas} pers · '
-            f'{fecha_hora.strftime("%d/%m %H:%M")}')
+            f'Nueva reserva Nº {reserva_id}: {(nombre or "").strip() or wa_id} · {personas} pers · '
+            f'{fecha_hora.strftime("%d/%m %H:%M")}', ref_id=reserva_id)
         return {'ok': True, 'reserva_id': reserva_id,
                 'mensaje': f'Reserva registrada para {personas} persona/s el '
                            f'{fecha_hora.strftime("%d/%m a las %H:%M")}. '

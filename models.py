@@ -144,6 +144,7 @@ class NotificacionPanel(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     tipo = Column(String(20), nullable=False, default='info')   # pedido | reserva | evento
+    ref_id = Column(Integer)                                    # id del pedido/reserva/evento
     mensaje = Column(Text, nullable=False)
     notificado = Column(Boolean, default=False, nullable=False, index=True)
     creado_en = Column(DateTime, default=datetime.now)

@@ -66,7 +66,7 @@
     <thead><tr><th>Fecha</th><th>Tipo</th><th>Contacto</th><th>Pers.</th><th>Cuándo</th><th>Detalle</th><th style="width:90px">Estado</th><th style="width:260px">Gestión</th></tr></thead>
     <tbody>
       {% for s in solicitudes %}
-        <tr class="{{ 'inactiva' if s.estado == 'cancelada' }}">
+        <tr id="evento-{{ s.id }}" class="{{ 'inactiva' if s.estado == 'cancelada' }}">
           <td>{{ s.creado_en.strftime('%d/%m %H:%M') if s.creado_en }}</td>
           <td>{{ s.tipo_evento or '—' }}</td>
           <td>

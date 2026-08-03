@@ -10,11 +10,11 @@ from database import SessionLocal
 from models import NotificacionPanel
 
 
-def crear(tipo: str, mensaje: str) -> None:
+def crear(tipo: str, mensaje: str, ref_id: int | None = None) -> None:
     """Registra una notificación para el panel. No rompe el flujo si falla."""
     db = SessionLocal()
     try:
-        db.add(NotificacionPanel(tipo=tipo, mensaje=mensaje))
+        db.add(NotificacionPanel(tipo=tipo, mensaje=mensaje, ref_id=ref_id))
         db.commit()
     except Exception as e:
         db.rollback()
@@ -30,7 +30,7 @@ def pendientes() -> list[dict]:
         filas = (db.query(NotificacionPanel)
                  .filter(NotificacionPanel.notificado.is_(False))
                  .order_by(NotificacionPanel.id).all())
-        datos = [{'id': n.id, 'tipo': n.tipo, 'mensaje': n.mensaje} for n in filas]
+        datos = [{'id': n.id, 'tipo': n.tipo, 'ref_id': n.ref_id, 'mensaje': n.mensaje} for n in filas]
         for n in filas:
             n.notificado = True
         db.commit()

@@ -1,0 +1,37 @@
+<h2>Pedidos</h2>
+{% if not filas %}
+  <p class="empty">No hay pedidos todavía. Van a aparecer cuando el bot tome un pedido o entre uno por el link de arriba.</p>
+{% else %}
+<table>
+  <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Ítems</th><th>Total</th><th>Pago</th><th>Estado</th><th>Retiro</th><th></th></tr></thead>
+  <tbody>
+    {% for p in filas %}
+      <tr id="pedido-{{ p.id }}" class="{{ 'inactiva' if p.estado in ('pendiente_pago', 'cancelado') }}">
+        <td>{{ p.id }}</td>
+        <td>{{ p.creado_en.strftime('%d/%m %H:%M') if p.creado_en }}</td>
+        <td>
+          {{ p.nombre_cliente or p.wa_id }}
+          {% if p.nombre_cliente %}<br><small>{{ p.wa_id }}</small>{% endif %}
+          {% if p.canal == 'web' %}<br><small>🌐 web</small>{% endif %}
+        </td>
+        <td>{% for it in p.items %}{{ it.cantidad }}× {{ it.nombre }}{{ ', ' if not loop.last }}{% endfor %}</td>
+        <td class="precio">{{ p.total | pesos }}</td>
+        <td><small>{{ 'MercadoPago' if p.metodo_pago == 'mercadopago' else 'al retirar' }}</small></td>
+        <td><span class="badge {{ 'hay' if p.estado in ('pagado', 'confirmado') else 'estado' }}">{{ p.estado.replace('_', ' ') }}</span></td>
+        <td>{{ p.hora_retiro.strftime('%H:%M') if p.hora_retiro else '—' }}</td>
+        <td class="acciones">
+          {% if p.estado in ('pagado', 'confirmado') %}
+            <form method="post" action="{{ url_for('admin.pedido_estado', pid=p.id) }}">
+              <input type="hidden" name="estado" value="preparado"><button class="btn small link">Preparado</button>
+            </form>
+          {% elif p.estado == 'preparado' %}
+            <form method="post" action="{{ url_for('admin.pedido_estado', pid=p.id) }}">
+              <input type="hidden" name="estado" value="retirado"><button class="btn small link">Retirado</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}

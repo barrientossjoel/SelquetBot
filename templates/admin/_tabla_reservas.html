@@ -1,0 +1,33 @@
+<h2>Reservas</h2>
+{% if not filas %}
+  <p class="empty">No hay reservas todavía. Se van a listar acá cuando el bot tome una reserva.</p>
+{% else %}
+<table>
+  <thead><tr><th>#</th><th>Fecha y hora</th><th>Nombre</th><th>Personas</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+    {% for r in filas %}
+      <tr id="reserva-{{ r.id }}">
+        <td>{{ r.id }}</td>
+        <td>{{ r.fecha_hora.strftime('%d/%m %H:%M') if r.fecha_hora }}</td>
+        <td>{{ r.nombre or r.wa_id }}</td>
+        <td>{{ r.personas }}</td>
+        <td><span class="badge estado">{{ r.estado }}</span></td>
+        <td class="acciones">
+          {% if r.estado in ('nueva', 'confirmada') %}
+            {% if r.estado == 'nueva' %}
+            <form method="post" action="{{ url_for('admin.reserva_estado', rid=r.id) }}">
+              <input type="hidden" name="estado" value="confirmada">
+              <button class="btn small link">Confirmar</button>
+            </form>
+            {% endif %}
+            <form method="post" action="{{ url_for('admin.reserva_estado', rid=r.id) }}">
+              <input type="hidden" name="estado" value="cancelada">
+              <button class="btn small danger">Cancelar</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}

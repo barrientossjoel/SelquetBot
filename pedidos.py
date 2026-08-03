@@ -103,7 +103,8 @@ def registrar_web(nombre: str, telefono: str, items: list[dict], total: int,
     finally:
         db.close()
 
-    notificaciones_panel.crear('pedido', f'Nuevo pedido web: {nombre} · {pesos(total)}')
+    notificaciones_panel.crear('pedido', f'Nuevo pedido web Nº {pedido_id}: {nombre} · {pesos(total)}',
+                               ref_id=pedido_id)
 
     if not es_mp:
         return {'ok': True, 'pedido_id': pedido_id, 'estado': 'confirmado', 'link': None}

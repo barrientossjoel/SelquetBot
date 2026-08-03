@@ -7,124 +7,27 @@
   {% endfor %}
 </div>
 
+{% if vista == 'pedidos' %}
 <div class="card">
-  {% if vista == 'pedidos' %}
-    <div class="ped-web-config">
-      <h2>Pedidos online</h2>
-      <p class="hint">Compartí este link para que los clientes armen su pedido y elijan cómo pagar.
-        Los pedidos caen acá automáticamente.</p>
-      <div class="row-form" style="align-items:center">
-        <input readonly value="{{ link_pedir }}" onclick="this.select()" style="flex:1">
-        <a class="btn ghost" href="{{ link_pedir }}" target="_blank" rel="noopener">Abrir</a>
-      </div>
-      <form method="post" action="{{ url_for('admin.pedidos_config') }}" class="row-form" style="margin-top:10px">
-        <input name="whatsapp_local" placeholder="WhatsApp del local (recibe los pedidos, ej. 11 5619-4427)"
-               value="{{ whatsapp_local }}" style="flex:1">
-        <button class="btn primary">Guardar</button>
-      </form>
-      <p class="hint">Si lo cargás, la pantalla de confirmación le ofrece al cliente enviarte el pedido por WhatsApp.</p>
-    </div>
+  <h2>Pedidos online</h2>
+  <p class="hint">Compartí este link para que los clientes armen su pedido y elijan cómo pagar.
+    Los pedidos caen acá automáticamente.</p>
+  <div class="row-form" style="align-items:center">
+    <input readonly value="{{ link_pedir }}" onclick="this.select()" style="flex:1">
+    <a class="btn ghost" href="{{ link_pedir }}" target="_blank" rel="noopener">Abrir</a>
+  </div>
+  <form method="post" action="{{ url_for('admin.pedidos_config') }}" class="row-form" style="margin-top:10px">
+    <input name="whatsapp_local" placeholder="WhatsApp del local (recibe los pedidos, ej. 11 5619-4427)"
+           value="{{ whatsapp_local }}" style="flex:1">
+    <button class="btn primary">Guardar</button>
+  </form>
+  <p class="hint">Si lo cargás, la pantalla de confirmación le ofrece al cliente enviarte el pedido por WhatsApp.</p>
+</div>
+{% endif %}
 
-    <h2>Pedidos</h2>
-    {% if not filas %}
-      <p class="empty">No hay pedidos todavía. Van a aparecer cuando el bot tome un pedido o entre uno por el link de arriba.</p>
-    {% else %}
-    <table>
-      <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Ítems</th><th>Total</th><th>Pago</th><th>Estado</th><th>Retiro</th><th></th></tr></thead>
-      <tbody>
-        {% for p in filas %}
-          <tr class="{{ 'inactiva' if p.estado in ('pendiente_pago', 'cancelado') }}">
-            <td>{{ p.id }}</td>
-            <td>{{ p.creado_en.strftime('%d/%m %H:%M') if p.creado_en }}</td>
-            <td>
-              {{ p.nombre_cliente or p.wa_id }}
-              {% if p.nombre_cliente %}<br><small>{{ p.wa_id }}</small>{% endif %}
-              {% if p.canal == 'web' %}<br><small>🌐 web</small>{% endif %}
-            </td>
-            <td>{% for it in p.items %}{{ it.cantidad }}× {{ it.nombre }}{{ ', ' if not loop.last }}{% endfor %}</td>
-            <td class="precio">{{ p.total | pesos }}</td>
-            <td><small>{{ 'MercadoPago' if p.metodo_pago == 'mercadopago' else 'al retirar' }}</small></td>
-            <td><span class="badge {{ 'hay' if p.estado in ('pagado', 'confirmado') else 'estado' }}">{{ p.estado.replace('_', ' ') }}</span></td>
-            <td>{{ p.hora_retiro.strftime('%H:%M') if p.hora_retiro else '—' }}</td>
-            <td class="acciones">
-              {% if p.estado in ('pagado', 'confirmado') %}
-                <form method="post" action="{{ url_for('admin.pedido_estado', pid=p.id) }}">
-                  <input type="hidden" name="estado" value="preparado"><button class="btn small link">Preparado</button>
-                </form>
-              {% elif p.estado == 'preparado' %}
-                <form method="post" action="{{ url_for('admin.pedido_estado', pid=p.id) }}">
-                  <input type="hidden" name="estado" value="retirado"><button class="btn small link">Retirado</button>
-                </form>
-              {% endif %}
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% endif %}
-
-  {% elif vista == 'reservas' %}
-    <h2>Reservas</h2>
-    {% if not filas %}
-      <p class="empty">No hay reservas todavía. Se van a listar acá cuando el bot tome reservas (fase 3).</p>
-    {% else %}
-    <table>
-      <thead><tr><th>#</th><th>Fecha y hora</th><th>Nombre</th><th>Personas</th><th>Estado</th><th></th></tr></thead>
-      <tbody>
-        {% for r in filas %}
-          <tr>
-            <td>{{ r.id }}</td>
-            <td>{{ r.fecha_hora.strftime('%d/%m %H:%M') if r.fecha_hora }}</td>
-            <td>{{ r.nombre or r.wa_id }}</td>
-            <td>{{ r.personas }}</td>
-            <td><span class="badge estado">{{ r.estado }}</span></td>
-            <td class="acciones">
-              {% if r.estado in ('nueva', 'confirmada') %}
-                {% if r.estado == 'nueva' %}
-                <form method="post" action="{{ url_for('admin.reserva_estado', rid=r.id) }}">
-                  <input type="hidden" name="estado" value="confirmada">
-                  <button class="btn small link">Confirmar</button>
-                </form>
-                {% endif %}
-                <form method="post" action="{{ url_for('admin.reserva_estado', rid=r.id) }}">
-                  <input type="hidden" name="estado" value="cancelada">
-                  <button class="btn small danger">Cancelar</button>
-                </form>
-              {% endif %}
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% endif %}
-
-  {% else %}
-    <h2>Opiniones y comentarios</h2>
-    <form method="get" class="row-form" style="margin-bottom:14px; align-items:center">
-      <input type="hidden" name="vista" value="opiniones">
-      <label class="hint">Ver comentarios del día:</label>
-      <input type="date" name="fecha" value="{{ fecha }}" style="flex:0 0 170px">
-      <button class="btn primary">Ver</button>
-      {% if fecha %}<a class="btn ghost" href="{{ url_for('admin.operacion', vista='opiniones') }}">Ver todos</a>{% endif %}
-    </form>
-    {% if not filas %}
-      <p class="empty">{{ 'No hubo comentarios ese día.' if fecha else 'No hay opiniones todavía.' }}</p>
-    {% else %}
-    <table>
-      <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>Texto</th></tr></thead>
-      <tbody>
-        {% for o in filas %}
-          <tr>
-            <td>{{ o.id }}</td>
-            <td>{{ o.creado_en.strftime('%d/%m %H:%M') if o.creado_en }}</td>
-            <td>{{ o.wa_id }}</td>
-            <td><span class="badge estado">{{ o.tipo }}</span></td>
-            <td>{{ o.texto }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% endif %}
-  {% endif %}
+<div class="card">
+  <div id="op-tabla" data-vista="{{ vista }}">
+    {% include 'admin/_tabla_' ~ vista ~ '.html' %}
+  </div>
 </div>
 {% endblock %}

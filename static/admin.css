@@ -150,46 +150,17 @@ td input { margin-top: 0; }
 .login-card h1 { font-size: 18px; margin: 0 0 20px; text-align: center; }
 .login-card .btn { width: 100%; margin-top: 6px; }
 
-/* Campana de notificaciones (topbar) */
-.notif-wrapper { position: relative; }
-.notif-btn {
-  position: relative; border: 0; background: transparent; cursor: pointer;
-  font-size: 20px; line-height: 1; padding: 4px; color: #fff;
+/* Botón para activar los avisos del navegador (topbar) */
+.btn-avisos {
+  border: 1px solid #374151; background: transparent; color: #d1d5db;
+  border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer;
 }
-.notif-badge {
-  position: absolute; top: -2px; right: -4px;
-  min-width: 16px; height: 16px; padding: 0 4px;
-  background: var(--danger); color: #fff; font-size: 10px; font-weight: 700;
-  border-radius: 999px; display: none; align-items: center; justify-content: center;
-}
-.notif-shake { animation: notif-shake .5s; }
-@keyframes notif-shake {
-  0%,100% { transform: rotate(0); } 20% { transform: rotate(-15deg); }
-  40% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 80% { transform: rotate(4deg); }
-}
+.btn-avisos:hover { color: #fff; border-color: #6b7280; }
+.btn-avisos.on { border-color: var(--accent); color: #86efac; cursor: default; }
 
-.notif-dropdown {
-  position: absolute; top: 42px; right: 0; width: 320px; max-height: 420px;
-  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-  box-shadow: 0 12px 32px rgba(0,0,0,.18); overflow: hidden; z-index: 1000;
-  display: none; flex-direction: column;
-}
-.notif-dropdown.active { display: flex; }
-.notif-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 14px; border-bottom: 1px solid var(--line);
-  font-weight: 700; color: var(--ink); font-size: 14px;
-}
-.notif-clear { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 13px; }
-.notif-clear:hover { color: var(--danger); }
-.notif-list { overflow-y: auto; }
-.notif-empty { padding: 28px 14px; text-align: center; color: var(--muted); font-size: 13px; }
-.notif-item { display: flex; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
-.notif-item:last-child { border-bottom: 0; }
-.notif-emoji { font-size: 18px; }
-.notif-content { display: flex; flex-direction: column; min-width: 0; }
-.notif-msg { color: var(--ink); font-size: 13px; }
-.notif-time { color: var(--muted); font-size: 11px; margin-top: 2px; }
+/* Fila resaltada al llegar desde una notificación (click → foco) */
+.destacado { animation: destacar 3s ease-out; }
+@keyframes destacar { 0% { background: #fef9c3; } 100% { background: transparent; } }
 
 /* Toasts */
 #notif-toasts {

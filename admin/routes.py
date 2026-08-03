@@ -385,13 +385,14 @@ def mesa_borrar(cid):
 
 # ─── Solapa Operación ───
 
-@admin_bp.route('/operacion')
-@login_required
-def operacion():
-    import os
+_VISTAS_OP = ('pedidos', 'reservas', 'opiniones')
+
+
+def _operacion_datos(vista, fecha):
+    """Carga las filas de una vista de Operación (pedidos/reservas/opiniones).
+    Único punto de lectura, usado por la página y por el fragmento."""
     from datetime import datetime, timedelta
-    vista = request.args.get('vista', 'pedidos')
-    fecha = (request.args.get('fecha') or '').strip()
+    vista = vista if vista in _VISTAS_OP else 'pedidos'
     db = SessionLocal()
     try:
         if vista == 'reservas':
@@ -406,15 +407,31 @@ def operacion():
                     pass
             filas = q.all()
         else:
-            vista = 'pedidos'
             filas = db.query(Pedido).order_by(Pedido.creado_en.desc()).all()
-        filas = list(filas)
+        return vista, list(filas)
     finally:
         db.close()
+
+
+@admin_bp.route('/operacion')
+@login_required
+def operacion():
+    import os
+    fecha = (request.args.get('fecha') or '').strip()
+    vista, filas = _operacion_datos(request.args.get('vista', 'pedidos'), fecha)
     base = (os.getenv('PUBLIC_BASE_URL') or os.getenv('MP_BASE_URL') or '').rstrip('/')
     return render_template('admin/operacion.html', active='operacion', vista=vista, filas=filas, fecha=fecha,
                            link_pedir=(f'{base}/pedir' if base else url_for('pedir.menu', _external=True)),
                            whatsapp_local=config_store.get_config('whatsapp_local', ''))
+
+
+@admin_bp.route('/operacion/tabla')
+@login_required
+def operacion_tabla():
+    """Fragmento HTML de la tabla de Operación, para refrescar sin recargar la página."""
+    fecha = (request.args.get('fecha') or '').strip()
+    vista, filas = _operacion_datos(request.args.get('vista', 'pedidos'), fecha)
+    return render_template(f'admin/_tabla_{vista}.html', vista=vista, filas=filas, fecha=fecha)
 
 
 @admin_bp.route('/pedidos/config', methods=['POST'])
