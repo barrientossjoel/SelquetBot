@@ -7,7 +7,7 @@ lectura y por ahora arranca vacía (la llenan las fases 3-4).
 import json
 import re
 
-from flask import (Blueprint, Response, flash, redirect, render_template,
+from flask import (Blueprint, Response, abort, flash, redirect, render_template,
                    request, session, url_for)
 
 import config_store
@@ -19,7 +19,8 @@ from reservas import DIAS
 from telefono import normalizar_ar as _normalizar_wa
 
 from . import excel_import
-from .auth import login_required, password_ok
+from .auth import (ENDPOINTS_NEUTROS, ENDPOINTS_PUBLICOS, autenticar, es_admin,
+                   landing_endpoint, puede_acceder, solapas_permitidas)
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -29,7 +30,25 @@ def _inject_comunes():
     return {
         'nombre_local': config_store.get_config('nombre_local', 'SELQUET'),
         'bot_activo': config_store.is_bot_activo(),
+        'es_admin': es_admin(),
+        'solapas': solapas_permitidas(),
+        'usuario_actual': session.get('usuario', ''),
     }
+
+
+@admin_bp.before_request
+def _control_acceso():
+    """Guarda única para todo el panel: exige sesión y valida el rol contra la
+    solapa del endpoint. Evita repetir decoradores en cada ruta."""
+    endpoint = (request.endpoint or '').rsplit('.', 1)[-1]
+    if endpoint in ENDPOINTS_PUBLICOS:
+        return
+    if not session.get('usuario'):
+        return redirect(url_for('admin.login'))
+    if endpoint in ENDPOINTS_NEUTROS:
+        return
+    if not puede_acceder(session.get('rol', ''), endpoint):
+        abort(403)
 
 
 # ─── Auth ───
@@ -37,36 +56,36 @@ def _inject_comunes():
 @admin_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        if password_ok(request.form.get('password', '')):
-            session['admin'] = True
-            return redirect(url_for('admin.informacion'))
-        flash('Contraseña incorrecta', 'error')
+        usuario = autenticar(request.form.get('usuario', ''), request.form.get('password', ''))
+        if usuario:
+            session['usuario'] = usuario.username
+            session['rol'] = usuario.rol
+            return redirect(url_for(landing_endpoint()))
+        flash('Usuario o contraseña incorrectos', 'error')
     return render_template('admin/login.html')
 
 
 @admin_bp.route('/logout')
 def logout():
-    session.pop('admin', None)
+    session.pop('usuario', None)
+    session.pop('rol', None)
     return redirect(url_for('admin.login'))
 
 
 @admin_bp.route('/')
-@login_required
 def home():
-    return redirect(url_for('admin.informacion'))
+    return redirect(url_for(landing_endpoint()))
 
 
 @admin_bp.route('/bot/toggle', methods=['POST'])
-@login_required
 def bot_toggle():
     config_store.set_bot_activo(not config_store.is_bot_activo())
-    return redirect(request.referrer or url_for('admin.informacion'))
+    return redirect(request.referrer or url_for(landing_endpoint()))
 
 
 # ─── Solapa Información ───
 
 @admin_bp.route('/informacion', methods=['GET', 'POST'])
-@login_required
 def informacion():
     if request.method == 'POST':
         config_store.set_config({
@@ -83,7 +102,6 @@ def informacion():
 # ─── Solapa FAQs ───
 
 @admin_bp.route('/faqs')
-@login_required
 def faqs():
     db = SessionLocal()
     try:
@@ -94,7 +112,6 @@ def faqs():
 
 
 @admin_bp.route('/faqs/nueva', methods=['POST'])
-@login_required
 def faq_nueva():
     pregunta = (request.form.get('pregunta') or '').strip()
     respuesta = (request.form.get('respuesta') or '').strip()
@@ -112,7 +129,6 @@ def faq_nueva():
 
 
 @admin_bp.route('/faqs/<int:fid>/editar', methods=['POST'])
-@login_required
 def faq_editar(fid):
     db = SessionLocal()
     try:
@@ -128,7 +144,6 @@ def faq_editar(fid):
 
 
 @admin_bp.route('/faqs/<int:fid>/toggle', methods=['POST'])
-@login_required
 def faq_toggle(fid):
     db = SessionLocal()
     try:
@@ -142,7 +157,6 @@ def faq_toggle(fid):
 
 
 @admin_bp.route('/faqs/<int:fid>/borrar', methods=['POST'])
-@login_required
 def faq_borrar(fid):
     db = SessionLocal()
     try:
@@ -159,7 +173,6 @@ def faq_borrar(fid):
 # ─── Solapa Menú ───
 
 @admin_bp.route('/menu')
-@login_required
 def menu():
     db = SessionLocal()
     try:
@@ -170,7 +183,6 @@ def menu():
 
 
 @admin_bp.route('/menu/nuevo', methods=['POST'])
-@login_required
 def menu_nuevo():
     nombre = (request.form.get('nombre') or '').strip()
     precio = excel_import.limpiar_precio(request.form.get('precio'))
@@ -193,7 +205,6 @@ def menu_nuevo():
 
 
 @admin_bp.route('/menu/guardar', methods=['POST'])
-@login_required
 def menu_guardar_todo():
     """Guarda de una todos los cambios de la tabla (nombre, categoría, precio,
     disponibilidad). Los campos vienen nombrados por id: nombre_<id>, etc."""
@@ -222,7 +233,6 @@ def menu_guardar_todo():
 
 
 @admin_bp.route('/menu/<int:mid>/borrar', methods=['POST'])
-@login_required
 def menu_borrar(mid):
     db = SessionLocal()
     try:
@@ -237,7 +247,6 @@ def menu_borrar(mid):
 
 
 @admin_bp.route('/menu/plantilla')
-@login_required
 def menu_plantilla():
     return Response(
         excel_import.plantilla_csv(),
@@ -247,7 +256,6 @@ def menu_plantilla():
 
 
 @admin_bp.route('/menu/importar', methods=['POST'])
-@login_required
 def menu_importar():
     archivo = request.files.get('archivo')
     if not archivo or not archivo.filename:
@@ -275,7 +283,6 @@ def menu_importar():
 
 
 @admin_bp.route('/menu/importar/confirmar', methods=['POST'])
-@login_required
 def menu_importar_confirmar():
     try:
         items = json.loads(request.form.get('items_json') or '[]')
@@ -310,7 +317,6 @@ def menu_importar_confirmar():
 # ─── Solapa Mesas (config del motor de disponibilidad de reservas) ───
 
 @admin_bp.route('/mesas')
-@login_required
 def mesas():
     db = SessionLocal()
     try:
@@ -321,7 +327,6 @@ def mesas():
 
 
 @admin_bp.route('/mesas/nueva', methods=['POST'])
-@login_required
 def mesa_nueva():
     try:
         fila = MesaConfig(
@@ -346,7 +351,6 @@ def mesa_nueva():
 
 
 @admin_bp.route('/mesas/<int:cid>/editar', methods=['POST'])
-@login_required
 def mesa_editar(cid):
     db = SessionLocal()
     try:
@@ -369,7 +373,6 @@ def mesa_editar(cid):
 
 
 @admin_bp.route('/mesas/<int:cid>/borrar', methods=['POST'])
-@login_required
 def mesa_borrar(cid):
     db = SessionLocal()
     try:
@@ -414,7 +417,6 @@ def _operacion_datos(vista, fecha):
 
 
 @admin_bp.route('/operacion')
-@login_required
 def operacion():
     import os
     fecha = (request.args.get('fecha') or '').strip()
@@ -426,7 +428,6 @@ def operacion():
 
 
 @admin_bp.route('/operacion/tabla')
-@login_required
 def operacion_tabla():
     """Fragmento HTML de la tabla de Operación, para refrescar sin recargar la página."""
     fecha = (request.args.get('fecha') or '').strip()
@@ -435,7 +436,6 @@ def operacion_tabla():
 
 
 @admin_bp.route('/pedidos/config', methods=['POST'])
-@login_required
 def pedidos_config():
     config_store.set_config({'whatsapp_local': _normalizar_wa(request.form.get('whatsapp_local')) or ''})
     flash('WhatsApp del local guardado', 'ok')
@@ -443,7 +443,6 @@ def pedidos_config():
 
 
 @admin_bp.route('/notificaciones/pendientes')
-@login_required
 def notificaciones_pendientes():
     """Notificaciones nuevas para la campana del panel (polling). Se marcan como
     entregadas al leerlas, para no repetirlas."""
@@ -451,7 +450,6 @@ def notificaciones_pendientes():
 
 
 @admin_bp.route('/reservas/<int:rid>/estado', methods=['POST'])
-@login_required
 def reserva_estado(rid):
     nuevo = request.form.get('estado', '')
     if nuevo in ('nueva', 'confirmada', 'cancelada', 'cumplida'):
@@ -467,7 +465,6 @@ def reserva_estado(rid):
 
 
 @admin_bp.route('/pedidos/<int:pid>/estado', methods=['POST'])
-@login_required
 def pedido_estado(pid):
     nuevo = request.form.get('estado', '')
     if nuevo in ('pagado', 'preparado', 'retirado', 'cancelado'):
@@ -485,7 +482,6 @@ def pedido_estado(pid):
 # ─── Solapa Eventos (destinatarios de notificación + solicitudes recibidas) ───
 
 @admin_bp.route('/eventos')
-@login_required
 def eventos():
     db = SessionLocal()
     try:
@@ -502,7 +498,6 @@ def eventos():
 
 
 @admin_bp.route('/eventos/jefe', methods=['POST'])
-@login_required
 def eventos_jefe():
     numeros = [_normalizar_wa(x) for x in re.split(r'[,\n;]+', request.form.get('jefe_whatsapp') or '')]
     config_store.set_config({
@@ -515,7 +510,6 @@ def eventos_jefe():
 
 
 @admin_bp.route('/eventos/reporte/enviar', methods=['POST'])
-@login_required
 def eventos_reporte_enviar():
     import reporte
     resultado = reporte.enviar()
@@ -527,7 +521,6 @@ def eventos_reporte_enviar():
 
 
 @admin_bp.route('/eventos/destinatarios/nuevo', methods=['POST'])
-@login_required
 def evento_destinatario_nuevo():
     nombre = (request.form.get('nombre') or '').strip()
     email = (request.form.get('email') or '').strip()
@@ -546,7 +539,6 @@ def evento_destinatario_nuevo():
 
 
 @admin_bp.route('/eventos/destinatarios/<int:did>/toggle', methods=['POST'])
-@login_required
 def evento_destinatario_toggle(did):
     db = SessionLocal()
     try:
@@ -560,7 +552,6 @@ def evento_destinatario_toggle(did):
 
 
 @admin_bp.route('/eventos/destinatarios/<int:did>/borrar', methods=['POST'])
-@login_required
 def evento_destinatario_borrar(did):
     db = SessionLocal()
     try:
@@ -575,7 +566,6 @@ def evento_destinatario_borrar(did):
 
 
 @admin_bp.route('/eventos/solicitudes/<int:sid>/estado', methods=['POST'])
-@login_required
 def solicitud_estado(sid):
     nuevo = request.form.get('estado', '')
     if nuevo in ('nueva', 'contactado', 'confirmada', 'cancelada'):

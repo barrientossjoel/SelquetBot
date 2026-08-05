@@ -26,6 +26,25 @@ class WhatsAppConversacion(Base):
     created_at = Column(DateTime, default=datetime.now, index=True)
 
 
+# ─── Panel: usuarios y roles ───
+
+class Usuario(Base):
+    """Usuario del panel de administración.
+
+    Rol 'admin': ve todas las solapas y puede prender/apagar el bot.
+    Rol 'local': solo ve Eventos y Operación, y no puede apagar el bot.
+    La contraseña se guarda hasheada (werkzeug), nunca en texto plano.
+    """
+    __tablename__ = 'usuarios'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(120), nullable=False, unique=True, index=True)
+    password_hash = Column(String(255), nullable=False)
+    rol = Column(String(20), nullable=False, default='local')   # admin | local
+    activo = Column(Boolean, default=True, nullable=False)
+    creado_en = Column(DateTime, default=datetime.now)
+
+
 # ─── Base de conocimiento (lo que el panel edita y el bot lee) ───
 
 class Config(Base):

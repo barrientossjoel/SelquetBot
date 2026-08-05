@@ -43,6 +43,7 @@ body {
 .pill.off { background: #4b5563; color: #e5e7eb; }
 .logout { color: #d1d5db; text-decoration: none; font-size: 14px; }
 .logout:hover { color: #fff; }
+.usuario { color: #9ca3af; font-size: 13px; border-left: 1px solid #374151; padding-left: 16px; }
 
 /* Tabs */
 .tabs {

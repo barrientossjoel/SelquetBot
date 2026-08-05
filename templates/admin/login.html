@@ -15,7 +15,8 @@
           <div class="flash {{ categoria }}">{{ mensaje }}</div>
         {% endfor %}
       {% endwith %}
-      <input type="password" name="password" placeholder="Contraseña" autofocus>
+      <input type="text" name="usuario" placeholder="Usuario" autocomplete="username" autofocus>
+      <input type="password" name="password" placeholder="Contraseña" autocomplete="current-password">
       <button class="btn primary">Entrar</button>
     </form>
   </div>

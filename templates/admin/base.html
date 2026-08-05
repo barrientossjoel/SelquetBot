@@ -11,19 +11,22 @@
     <div class="brand">{{ nombre_local }} <span>· Panel</span></div>
     <div class="topbar-right">
       <button id="btn-avisos" type="button" class="btn-avisos" title="Activar los avisos del navegador">🔔 Avisos</button>
+      {% if es_admin %}
       <form class="bot-toggle" method="post" action="{{ url_for('admin.bot_toggle') }}">
         <span class="bot-label">Bot</span>
         <button class="pill {{ 'on' if bot_activo else 'off' }}" title="Prender / apagar el bot">
           {{ 'ON' if bot_activo else 'OFF' }}
         </button>
       </form>
+      {% endif %}
+      {% if usuario_actual %}<span class="usuario">{{ usuario_actual }}</span>{% endif %}
       <a class="logout" href="{{ url_for('admin.logout') }}">Salir</a>
     </div>
   </header>
 
   <nav class="tabs">
     {% set tabs = [('informacion', 'Información'), ('faqs', 'FAQs'), ('menu', 'Menú'), ('mesas', 'Mesas'), ('eventos', 'Eventos'), ('operacion', 'Operación')] %}
-    {% for key, label in tabs %}
+    {% for key, label in tabs if key in solapas %}
       <a href="{{ url_for('admin.' ~ key) }}" class="{{ 'active' if active == key }}">{{ label }}</a>
     {% endfor %}
   </nav>

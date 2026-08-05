@@ -2,9 +2,11 @@
 así el bot arranca con los datos que antes estaban hardcodeados, pero editables
 desde el panel. No pisa nada si el local ya cargó lo suyo.
 """
+from werkzeug.security import generate_password_hash
+
 from config_store import set_config
 from database import SessionLocal
-from models import Config, MenuItem, MesaConfig
+from models import Config, MenuItem, MesaConfig, Usuario
 
 _CONFIG_INICIAL = {
     'nombre_local': 'SELQUET',
@@ -40,8 +42,34 @@ _MESAS_INICIAL = [
     for desde, hasta in (('12:00', '15:30'), ('20:00', '23:59'))
 ]
 
+# Usuarios iniciales del panel: (username, contraseña, rol).
+_USUARIOS_INICIAL = [
+    ('Luz', 'Calamar718!', 'admin'),
+    ('cflopez.86@gmail.com', 'Calamar718!', 'admin'),
+    ('local', 'Pampa611', 'local'),
+]
+
+
+def _seed_usuarios():
+    """Crea los usuarios que falten (idempotente por username). No pisa
+    contraseñas ya existentes: si el usuario ya está, lo deja como esté."""
+    db = SessionLocal()
+    try:
+        existentes = {u.username for u in db.query(Usuario).all()}
+        nuevos = [
+            Usuario(username=n, password_hash=generate_password_hash(pw), rol=r)
+            for n, pw, r in _USUARIOS_INICIAL if n not in existentes
+        ]
+        if nuevos:
+            db.add_all(nuevos)
+            db.commit()
+    finally:
+        db.close()
+
 
 def seed():
+    _seed_usuarios()
+
     db = SessionLocal()
     try:
         config_vacia = db.query(Config).count() == 0
