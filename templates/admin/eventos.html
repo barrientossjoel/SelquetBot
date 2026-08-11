@@ -1,6 +1,7 @@
 {% extends 'admin/base.html' %}
 {% block content %}
 
+{% if es_admin %}
 <div class="card">
   <h2>Reporte diario a los jefes</h2>
   <p class="hint">Al final del día se manda un resumen de las solicitudes de eventos y cuántas fueron contactadas.
@@ -56,6 +57,7 @@
     <p class="empty">Sin destinatarios. Cargá al menos uno para que lleguen las solicitudes.</p>
   {% endif %}
 </div>
+{% endif %}
 
 <div class="card">
   <h2>Solicitudes de eventos recibidas</h2>

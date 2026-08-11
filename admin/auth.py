@@ -30,9 +30,10 @@ ENDPOINTS_NEUTROS = ('home',)
 # configuración → solo admin (fail-closed: una ruta nueva queda protegida por
 # defecto hasta clasificarla).
 ENDPOINTS_POR_SOLAPA = {
-    'eventos': ('eventos', 'eventos_jefe', 'eventos_reporte_enviar',
-                'evento_destinatario_nuevo', 'evento_destinatario_toggle',
-                'evento_destinatario_borrar', 'solicitud_estado'),
+    # Eventos: el local ve la solapa y gestiona las solicitudes recibidas. La
+    # configuración (reporte a jefes, destinatarios de notificación) es solo de
+    # admin, así que NO va acá → queda sin clasificar → fail-closed (solo admin).
+    'eventos': ('eventos', 'solicitud_estado'),
     'operacion': ('operacion', 'operacion_tabla', 'pedidos_config',
                   'notificaciones_pendientes', 'reserva_estado', 'pedido_estado'),
 }
