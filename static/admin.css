@@ -120,6 +120,13 @@ td input { margin-top: 0; }
 .acciones { white-space: nowrap; text-align: right; }
 .acciones form { display: inline; }
 
+/* Columna Gestión (solicitudes de eventos): input + botones apilados y compactos,
+   para que no se corten al costado por más columnas que tenga la tabla. */
+td.gestion { white-space: normal; text-align: left; width: 300px; }
+td.gestion form { display: block; margin-bottom: 6px; }
+td.gestion input { width: 100%; box-sizing: border-box; margin-bottom: 4px; }
+td.gestion .btn { width: 100%; }
+
 /* Badges */
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
 .badge.hay { background: #dcfce7; color: var(--accent-dark); }

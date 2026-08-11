@@ -81,7 +81,7 @@
           <td>{{ s.fecha_estimada or '—' }}</td>
           <td>{{ s.detalle or '—' }}</td>
           <td><span class="badge {{ 'hay' if s.estado == 'confirmada' else 'estado' }}">{{ s.estado }}</span></td>
-          <td class="acciones" style="text-align:left">
+          <td class="acciones gestion">
             {% if s.estado == 'confirmada' %}
               <small>✅ {{ s.notas_confirmacion or 'Confirmada' }}</small>
             {% elif s.estado != 'cancelada' %}
