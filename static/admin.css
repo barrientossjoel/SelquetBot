@@ -61,7 +61,7 @@ body {
 .tabs a.active { color: #fff; border-bottom-color: var(--accent); }
 
 /* Content */
-.content { max-width: 1280px; margin: 24px auto; padding: 0 24px; }
+.content { max-width: 1600px; margin: 24px auto; padding: 0 24px; }
 
 .card {
   background: var(--card);
