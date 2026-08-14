@@ -63,7 +63,7 @@ def crear():
     form = request.form
     nombre = (form.get('nombre') or '').strip()
     telefono = normalizar_ar(form.get('telefono'))
-    metodo_pago = 'mercadopago' if (form.get('metodo_pago') == 'mercadopago' and _mp_disponible()) else 'efectivo'
+    metodo_pago = 'mercadopago'   # el takeaway se paga siempre con Mercado Pago
     notas = (form.get('notas') or '').strip() or None
 
     try:
@@ -78,6 +78,8 @@ def crear():
         error = 'Completá tu nombre y tu teléfono.'
     elif not items_pedido:
         error = 'Elegí al menos un producto.'
+    elif not _mp_disponible():
+        error = 'El pago es solo con Mercado Pago y ahora no está disponible. Probá más tarde.'
     else:
         armado = pedidos.armar_pedido(items_pedido)
         if not armado['ok']:
@@ -173,7 +175,7 @@ def _wa_link(pedido) -> str | None:
     lineas += ['', f'Total: {pesos(pedido.total)}']
     if pedido.hora_retiro:
         lineas.append(f"Retiro: {pedido.hora_retiro.strftime('%H:%M')}")
-    lineas.append('Pago: ' + ('MercadoPago' if pedido.metodo_pago == 'mercadopago' else 'al retirar'))
+    lineas.append('Pago: Mercado Pago')
     lineas.append(f'A nombre de: {pedido.nombre_cliente}')
     lineas.append(f'{_base_url()}/pedir/{pedido.id}')
     return f'https://wa.me/{destino}?text={quote(chr(10).join(lineas))}'

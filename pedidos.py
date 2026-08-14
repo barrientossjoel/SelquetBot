@@ -164,12 +164,13 @@ def obtener(pedido_id: int) -> Pedido | None:
         db.close()
 
 
-def marcar_pagado(external_reference, payment_id) -> tuple[str | None, datetime | None]:
-    """Pasa el pedido a 'pagado'. Devuelve (wa_id, hora_retiro) para avisar al cliente."""
+def marcar_pagado(external_reference, payment_id) -> int | None:
+    """Pasa el pedido a 'pagado'. Devuelve el id del pedido marcado, o None si no
+    correspondía (id inválido o ya no estaba pendiente de pago)."""
     try:
         pedido_id = int(external_reference)
     except (TypeError, ValueError):
-        return None, None
+        return None
     db = SessionLocal()
     try:
         pedido = db.get(Pedido, pedido_id)
@@ -177,10 +178,30 @@ def marcar_pagado(external_reference, payment_id) -> tuple[str | None, datetime 
             pedido.estado = 'pagado'
             pedido.mp_payment_id = str(payment_id)
             db.commit()
-            return pedido.wa_id, pedido.hora_retiro
-        return None, None
+            return pedido_id
+        return None
     finally:
         db.close()
+
+
+def comanda_texto(pedido: Pedido) -> str:
+    """Comanda estilo ticket para mandarle al cliente por WhatsApp cuando el pago
+    queda confirmado. La muestra en el local al retirar."""
+    nombre_local = get_config('nombre_local', 'SELQUET')
+    lineas = [f'🧾 *{nombre_local}* — Pedido N° {pedido.id}', '']
+    for it in (pedido.items or []):
+        subtotal = int(it.get('precio', 0)) * int(it.get('cantidad', 0))
+        lineas.append(f"• {it.get('cantidad')}x {it.get('nombre')} — {pesos(subtotal)}")
+    lineas += ['', f'*Total: {pesos(pedido.total)}*', 'Takeaway · Pago: Mercado Pago ✅', '']
+    if pedido.nombre_cliente:
+        lineas.append(f'A nombre de: {pedido.nombre_cliente}')
+    lineas.append(f'Teléfono: {pedido.wa_id}')
+    if pedido.hora_retiro:
+        lineas.append(f'Retiro: {pedido.hora_retiro.strftime("%H:%M")} hs')
+    if pedido.creado_en:
+        lineas.append(f'Fecha: {pedido.creado_en.strftime("%d/%m/%Y")}')
+    lineas += ['', 'Mostrá esta comanda al retirar tu pedido 🙌']
+    return '\n'.join(lineas)
 
 
 def _pedido_minimo() -> int:

@@ -44,18 +44,12 @@
     <input name="nombre" placeholder="Tu nombre" value="{{ form.get('nombre', '') }}" required>
     <input name="telefono" placeholder="Tu teléfono (ej. 11 5619-4427)" value="{{ form.get('telefono', '') }}" required>
     <label class="ped-label">¿A qué hora lo retirás?</label>
-    <input name="hora_retiro" type="time" value="{{ form.get('hora_retiro', '') }}">
+    <input name="hora_retiro" id="hora_retiro" type="time" value="{{ form.get('hora_retiro', '') }}" required>
+    <p class="ped-min">El retiro es a partir de 30 minutos desde que hacés el pedido.</p>
     <textarea name="notas" placeholder="Aclaraciones (opcional)">{{ form.get('notas', '') }}</textarea>
 
     <h2>¿Cómo pagás?</h2>
-    <label class="ped-pago">
-      <input type="radio" name="metodo_pago" value="efectivo" checked> Al retirar (efectivo / tarjeta)
-    </label>
-    {% if mp_disponible %}
-    <label class="ped-pago">
-      <input type="radio" name="metodo_pago" value="mercadopago"> Pagar ahora con MercadoPago
-    </label>
-    {% endif %}
+    <p class="ped-min">💳 El pago es únicamente con <b>Mercado Pago</b>. Al confirmar te llevamos a pagar; el pedido se manda a cocinar cuando el pago queda confirmado.</p>
   </section>
 
   <div class="ped-barra">
@@ -73,6 +67,13 @@
     var totalEl = document.getElementById('ped-total');
     var confirmar = document.getElementById('ped-confirmar');
     var itemsInput = document.getElementById('items_json');
+
+    // Mínimo de retiro: 30 min desde ahora (el server lo revalida igual).
+    var horaInput = document.getElementById('hora_retiro');
+    if (horaInput) {
+      var t = new Date(Date.now() + 30 * 60000);
+      horaInput.min = ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2);
+    }
 
     function pesos(n) { return '$' + n.toLocaleString('es-AR'); }
 

@@ -46,12 +46,17 @@ def _procesar(payment_id):
         info = pagos.consultar_pago(payment_id)
         if not info or info.get('status') != 'approved':
             return
-        wa_id, hora_retiro = pedidos.marcar_pagado(info.get('external_reference'), payment_id)
-        if wa_id:
-            from whatsapp.providers import get_provider
-            hr = hora_retiro.strftime('%H:%M') if hora_retiro else 'el horario acordado'
-            get_provider().send_message(
-                wa_id, f'¡Pago confirmado! 🎉 Tu pedido ya está en cocina. Lo retirás a las {hr}.')
+        pedido_id = pedidos.marcar_pagado(info.get('external_reference'), payment_id)
+        if pedido_id:
+            pedido = pedidos.obtener(pedido_id)
+            if pedido:
+                from whatsapp.providers import get_provider
+                provider = get_provider()
+                hr = pedido.hora_retiro.strftime('%H:%M') if pedido.hora_retiro else 'el horario acordado'
+                provider.send_message(
+                    pedido.wa_id, f'¡Pago confirmado! 🎉 Tu pedido ya está en cocina. Lo retirás a las {hr}.')
+                # Comanda estilo ticket para que la muestre al retirar.
+                provider.send_message(pedido.wa_id, pedidos.comanda_texto(pedido))
     except Exception as e:
         print(f'[MP Webhook] Error procesando pago {payment_id}: {e}')
         traceback.print_exc()
