@@ -402,12 +402,8 @@ def _rango_dia(fecha_str):
 
 @admin_bp.route('/reservas')
 def reservas():
-    return (_reservas_corporativas() if request.args.get('tab') == 'corporativas'
-            else _reservas_comunes())
-
-
-def _reservas_comunes():
-    """Vista partida: por confirmar (todas) + confirmadas del día elegido."""
+    """Reservas comunes (por confirmar + confirmadas del día) y corporativas
+    (solicitudes de eventos) en una sola vista."""
     from datetime import datetime
     fecha = (request.args.get('fecha') or datetime.now().strftime('%Y-%m-%d')).strip()
     ini, fin = _rango_dia(fecha)
@@ -419,21 +415,13 @@ def _reservas_comunes():
         if ini:
             q = q.filter(Reserva.fecha_hora >= ini, Reserva.fecha_hora < fin)
         del_dia = q.order_by(Reserva.fecha_hora).all()
-    finally:
-        db.close()
-    return render_template('admin/reservas.html', active='reservas', tab='comunes',
-                           por_confirmar=por_confirmar, del_dia=del_dia, fecha=fecha)
-
-
-def _reservas_corporativas():
-    db = SessionLocal()
-    try:
         destinatarios = db.query(DestinatarioEvento).order_by(DestinatarioEvento.id.desc()).all()
         solicitudes = db.query(SolicitudEvento).order_by(SolicitudEvento.creado_en.desc()).all()
     finally:
         db.close()
     cfg = config_store.get_all_config()
-    return render_template('admin/reservas.html', active='reservas', tab='corporativas',
+    return render_template('admin/reservas.html', active='reservas',
+                           por_confirmar=por_confirmar, del_dia=del_dia, fecha=fecha,
                            destinatarios=destinatarios, solicitudes=solicitudes,
                            jefe_whatsapp=cfg.get('jefe_whatsapp', ''),
                            jefe_email=cfg.get('jefe_email', ''),
