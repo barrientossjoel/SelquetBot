@@ -21,8 +21,9 @@
         <td>{{ p.hora_retiro.strftime('%H:%M') if p.hora_retiro else '—' }}</td>
         <td class="acciones">
           {% if p.estado in ('pagado', 'confirmado') %}
-            <form method="post" action="{{ url_for('admin.pedido_estado', pid=p.id) }}">
-              <input type="hidden" name="estado" value="preparado"><button class="btn small link">Preparado</button>
+            <form method="post" action="{{ url_for('admin.pedido_estado', pid=p.id) }}"
+                  onsubmit="return confirm('¿Aprobar el pedido y avisarle al cliente por WhatsApp?')">
+              <input type="hidden" name="estado" value="preparado"><button class="btn small primary">Aprobar y avisar</button>
             </form>
           {% elif p.estado == 'preparado' %}
             <form method="post" action="{{ url_for('admin.pedido_estado', pid=p.id) }}">

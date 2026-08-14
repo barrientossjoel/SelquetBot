@@ -48,6 +48,13 @@ def _mp_disponible() -> bool:
     return bool(os.getenv('MP_ACCESS_TOKEN', '').strip())
 
 
+def _telefono_ok(tel: str | None) -> bool:
+    """Un celular argentino normalizado queda como 54 9 + 10 dígitos (≈13). Aceptamos
+    12-14 por variantes de código de área; así se descartan números incompletos que
+    después WhatsApp rechazaría (y no llegaría la comanda)."""
+    return bool(tel) and tel.startswith('54') and 12 <= len(tel) <= 14
+
+
 @pedir_bp.route('/pedir', methods=['GET'])
 def menu():
     return render_template('pedir/menu.html',
@@ -76,6 +83,8 @@ def crear():
     error = None
     if not nombre or not telefono:
         error = 'Completá tu nombre y tu teléfono.'
+    elif not _telefono_ok(telefono):
+        error = 'Revisá tu teléfono: incluí el código de área y el número completo (ej. 11 5619-4427).'
     elif not items_pedido:
         error = 'Elegí al menos un producto.'
     elif not _mp_disponible():

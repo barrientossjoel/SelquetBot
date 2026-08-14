@@ -43,15 +43,57 @@
     if (RUTA[tipo]) window.location.href = RUTA[tipo](refId);
   }
 
-  // ── avisos ──
+  // ── sonido ──
+  // Un AudioContext único, desbloqueado en el primer gesto del usuario (política
+  // de autoplay). Cada aviso son 3 beeps para que se note (molesta a propósito).
+  var audioCtx = null;
+  function desbloquearAudio() {
+    if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; } }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function beep(freq, cuando, dur) {
+    var osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = 'sine'; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, cuando);
+    gain.gain.exponentialRampToValueAtTime(0.12, cuando + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, cuando + dur);
+    osc.start(cuando); osc.stop(cuando + dur);
+  }
   function sonar() {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var osc = ctx.createOscillator(), gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = 'sine'; osc.frequency.value = 880; gain.gain.value = 0.07;
-      osc.start(); setTimeout(function () { osc.stop(); ctx.close(); }, 200);
-    } catch (e) { /* sin audio */ }
+    desbloquearAudio();
+    if (!audioCtx) return;
+    var t = audioCtx.currentTime;
+    beep(880, t, 0.18); beep(880, t + 0.25, 0.18); beep(1175, t + 0.5, 0.28);
+  }
+
+  // ── alerta persistente: titila el título y suena mientras haya pendientes ──
+  var tituloBase = document.title;
+  var pendientes = 0;
+  var ciclos = 0;
+
+  setInterval(function () {   // titileo del título de la pestaña
+    if (pendientes > 0) {
+      document.title = (document.title === tituloBase)
+        ? '🔴 (' + pendientes + ') sin atender'
+        : tituloBase;
+    } else if (document.title !== tituloBase) {
+      document.title = tituloBase;
+    }
+  }, 1000);
+
+  function chequearPendientes() {
+    fetch('/admin/pendientes/activos', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) return;
+        var antes = pendientes;
+        pendientes = d.total || 0;
+        // Suena si aparece algo nuevo, y sigue insistiendo (cada ~3 ciclos) mientras queden.
+        if (pendientes > 0 && (pendientes > antes || ciclos % 3 === 0)) sonar();
+        ciclos++;
+      })
+      .catch(function () { /* red caída: reintenta */ });
   }
 
   function toast(n) {
@@ -117,10 +159,15 @@
     var btn = document.getElementById('btn-avisos');
     if (btn) btn.addEventListener('click', pedirPermiso);
     document.addEventListener('click', pedirPermiso, { once: true });
+    // Desbloquear el audio en el primer gesto (política de autoplay del navegador).
+    document.addEventListener('click', desbloquearAudio, { once: true });
+    document.addEventListener('keydown', desbloquearAudio, { once: true });
     pedirPermiso();
     focoInicial();
     verificar();
     setInterval(verificar, POLLING_MS);
+    chequearPendientes();
+    setInterval(chequearPendientes, POLLING_MS);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

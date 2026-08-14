@@ -475,16 +475,37 @@ def pedidos_config():
 @admin_bp.route('/takeaway/<int:pid>/estado', methods=['POST'], endpoint='pedido_estado')
 def pedido_estado(pid):
     nuevo = request.form.get('estado', '')
-    if nuevo in ('pagado', 'preparado', 'retirado', 'cancelado'):
-        db = SessionLocal()
-        try:
-            pedido = db.get(Pedido, pid)
-            if pedido:
-                pedido.estado = nuevo
-                db.commit()
-        finally:
-            db.close()
+    if nuevo not in ('pagado', 'preparado', 'retirado', 'cancelado'):
+        return redirect(url_for('admin.takeaway'))
+    aprobado = False
+    db = SessionLocal()
+    try:
+        pedido = db.get(Pedido, pid)
+        if pedido:
+            # "Aprobar" = el local acepta el pedido pagado y lo pasa a preparación.
+            aprobado = nuevo == 'preparado' and pedido.estado in ('pagado', 'confirmado')
+            pedido.estado = nuevo
+            db.commit()
+    finally:
+        db.close()
+    if aprobado:
+        _avisar_pedido_aprobado(pid)
     return redirect(url_for('admin.takeaway'))
+
+
+def _avisar_pedido_aprobado(pid):
+    """Al aprobar el pedido, le manda al comprador la confirmación + la comanda por
+    WhatsApp (para que la muestre al retirar)."""
+    import pedidos
+    from whatsapp.providers import get_provider
+    pedido = pedidos.obtener(pid)
+    if not pedido:
+        return
+    provider = get_provider()
+    hr = pedido.hora_retiro.strftime('%H:%M') if pedido.hora_retiro else 'el horario acordado'
+    provider.send_message(
+        pedido.wa_id, f'¡Tu pedido fue confirmado por el local! 🎉 Está en preparación. Lo retirás a las {hr}.')
+    provider.send_message(pedido.wa_id, pedidos.comanda_texto(pedido))
 
 
 # ── Opiniones ──
@@ -509,6 +530,22 @@ def notificaciones_pendientes():
     """Notificaciones nuevas para la campana del panel (polling). Se marcan como
     entregadas al leerlas, para no repetirlas."""
     return {'notificaciones': notificaciones_panel.pendientes()}
+
+
+@admin_bp.route('/pendientes/activos')
+def pendientes_activos():
+    """Cuántas novedades quedan SIN atender: pedidos pagados a preparar, reservas
+    por confirmar y solicitudes corporativas sin contactar. El JS lo consulta por
+    polling para hacer sonar y titilar el panel hasta que se resuelvan."""
+    db = SessionLocal()
+    try:
+        pedidos = db.query(Pedido).filter(Pedido.estado.in_(('pagado', 'confirmado'))).count()
+        reservas = db.query(Reserva).filter(Reserva.estado == 'nueva').count()
+        corporativas = db.query(SolicitudEvento).filter(SolicitudEvento.estado == 'nueva').count()
+    finally:
+        db.close()
+    return {'total': pedidos + reservas + corporativas,
+            'pedidos': pedidos, 'reservas': reservas, 'corporativas': corporativas}
 
 
 # ── Corporativas: configuración (solo admin) + gestión de solicitudes ──

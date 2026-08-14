@@ -50,13 +50,15 @@ def _procesar(payment_id):
         if pedido_id:
             pedido = pedidos.obtener(pedido_id)
             if pedido:
-                from whatsapp.providers import get_provider
-                provider = get_provider()
-                hr = pedido.hora_retiro.strftime('%H:%M') if pedido.hora_retiro else 'el horario acordado'
-                provider.send_message(
-                    pedido.wa_id, f'¡Pago confirmado! 🎉 Tu pedido ya está en cocina. Lo retirás a las {hr}.')
-                # Comanda estilo ticket para que la muestre al retirar.
-                provider.send_message(pedido.wa_id, pedidos.comanda_texto(pedido))
+                # El pago quedó confirmado: el pedido pasa a estar PENDIENTE DE
+                # APROBACIÓN del local. Avisamos al panel (suena/titila) y la
+                # comanda al comprador se manda recién cuando el local lo aprueba.
+                import notificaciones_panel
+                from formato import pesos
+                notificaciones_panel.crear(
+                    'pedido',
+                    f'Pedido N° {pedido.id} PAGADO — aprobalo: {pedido.nombre_cliente or pedido.wa_id} · {pesos(pedido.total)}',
+                    ref_id=pedido.id)
     except Exception as e:
         print(f'[MP Webhook] Error procesando pago {payment_id}: {e}')
         traceback.print_exc()

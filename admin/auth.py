@@ -26,7 +26,7 @@ ENDPOINTS_PUBLICOS = ('login', 'logout', 'static')
 # Endpoints que requieren sesión pero no pertenecen a una solapa (no se chequea
 # rol): 'home' (redirige a la landing) y el polling de avisos (lo consulta el JS
 # desde cualquier página operativa, sin importar el rol).
-ENDPOINTS_NEUTROS = ('home', 'notificaciones_pendientes')
+ENDPOINTS_NEUTROS = ('home', 'notificaciones_pendientes', 'pendientes_activos')
 
 # A qué solapa pertenece cada endpoint. Lo que NO figure acá se considera
 # configuración → solo admin (fail-closed: una ruta nueva queda protegida por
