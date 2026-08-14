@@ -77,8 +77,6 @@ body {
 .card-head form { margin: 0; }
 .hint, .empty { color: var(--muted); font-size: 13px; margin: 4px 0 16px; }
 .empty { padding: 20px 0; text-align: center; }
-.seccion-titulo { font-size: 15px; font-weight: 700; margin: 28px 4px 14px; }
-.content > .seccion-titulo:first-of-type { margin-top: 4px; }
 
 /* Forms */
 label { display: block; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: #374151; }
