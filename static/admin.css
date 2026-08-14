@@ -137,6 +137,7 @@ td.gestion .btn { width: 100%; }
 .badge.hay { background: #dcfce7; color: var(--accent-dark); }
 .badge.nohay { background: #fee2e2; color: var(--danger); }
 .badge.estado { background: #e5e7eb; color: #374151; }
+.badge.corporativa { background: #ede9fe; color: #6d28d9; }   /* diferencia el tipo corporativa */
 
 .precio { font-variant-numeric: tabular-nums; font-weight: 600; }
 

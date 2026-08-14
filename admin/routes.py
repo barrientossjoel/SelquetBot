@@ -402,39 +402,24 @@ def _rango_dia(fecha_str):
 
 @admin_bp.route('/reservas')
 def reservas():
-    return (_reservas_corporativas() if request.args.get('tab') == 'corporativas'
-            else _reservas_comunes())
-
-
-def _reservas_comunes():
-    """Vista partida: por confirmar (todas) + confirmadas del día elegido."""
+    """Todas las reservas en una sola lista: comunes (mesa) y corporativas
+    (solicitudes de eventos) juntas. Las corporativas se diferencian con color y
+    muestran si ya fueron contactadas. La config (reporte/destinatarios) va aparte
+    (solo admin)."""
     from datetime import datetime
-    fecha = (request.args.get('fecha') or datetime.now().strftime('%Y-%m-%d')).strip()
-    ini, fin = _rango_dia(fecha)
     db = SessionLocal()
     try:
-        por_confirmar = (db.query(Reserva).filter(Reserva.estado == 'nueva')
-                         .order_by(Reserva.fecha_hora).all())
-        q = db.query(Reserva).filter(Reserva.estado == 'confirmada')
-        if ini:
-            q = q.filter(Reserva.fecha_hora >= ini, Reserva.fecha_hora < fin)
-        del_dia = q.order_by(Reserva.fecha_hora).all()
-    finally:
-        db.close()
-    return render_template('admin/reservas.html', active='reservas', tab='comunes',
-                           por_confirmar=por_confirmar, del_dia=del_dia, fecha=fecha)
-
-
-def _reservas_corporativas():
-    db = SessionLocal()
-    try:
+        comunes = db.query(Reserva).filter(Reserva.estado != 'cancelada').all()
+        corporativas = db.query(SolicitudEvento).filter(SolicitudEvento.estado != 'cancelada').all()
         destinatarios = db.query(DestinatarioEvento).order_by(DestinatarioEvento.id.desc()).all()
-        solicitudes = db.query(SolicitudEvento).order_by(SolicitudEvento.creado_en.desc()).all()
     finally:
         db.close()
+    # Lista unificada, más recientes primero (por cuándo entró la reserva).
+    items = [('comun', r) for r in comunes] + [('corporativa', s) for s in corporativas]
+    items.sort(key=lambda t: t[1].creado_en or datetime.min, reverse=True)
     cfg = config_store.get_all_config()
-    return render_template('admin/reservas.html', active='reservas', tab='corporativas',
-                           destinatarios=destinatarios, solicitudes=solicitudes,
+    return render_template('admin/reservas.html', active='reservas', items=items,
+                           destinatarios=destinatarios,
                            jefe_whatsapp=cfg.get('jefe_whatsapp', ''),
                            jefe_email=cfg.get('jefe_email', ''),
                            hora_reporte=cfg.get('hora_reporte', '23:00'))

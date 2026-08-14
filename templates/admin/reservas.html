@@ -1,13 +1,93 @@
 {% extends 'admin/base.html' %}
 {% block content %}
-<div class="subnav">
-  <a href="{{ url_for('admin.reservas') }}" class="{{ 'active' if tab == 'comunes' }}">Comunes</a>
-  <a href="{{ url_for('admin.reservas', tab='corporativas') }}" class="{{ 'active' if tab == 'corporativas' }}">Corporativas</a>
+
+<div class="card">
+  <div class="card-head">
+    <h2>Todas las reservas</h2>
+    {% if items %}<span class="badge estado">{{ items|length }}</span>{% endif %}
+  </div>
+  <p class="hint">Comunes y corporativas juntas. Las <b>corporativas</b> van marcadas:
+    <span class="badge nohay">rojo = sin contactar</span> ·
+    <span class="badge hay">verde = contactada</span>.</p>
+
+  {% if not items %}
+    <p class="empty">Todavía no hay reservas.</p>
+  {% else %}
+  <table>
+    <thead><tr>
+      <th>Ingresó</th><th>Cuándo</th><th>Nombre / Contacto</th><th>Pers.</th>
+      <th>Tipo</th><th>Estado</th><th style="width:300px">Acciones</th>
+    </tr></thead>
+    <tbody>
+      {% for tipo, r in items %}
+        {% if tipo == 'comun' %}
+          {# ── Reserva común (mesa) ── #}
+          <tr id="reserva-{{ r.id }}">
+            <td>{{ r.creado_en.strftime('%d/%m %H:%M') if r.creado_en }}</td>
+            <td>{{ r.fecha_hora.strftime('%d/%m %H:%M') if r.fecha_hora }}</td>
+            <td>{{ r.nombre or r.wa_id }}</td>
+            <td>{{ r.personas }}</td>
+            <td><span class="badge estado">Común</span></td>
+            <td><span class="badge {{ 'hay' if r.estado == 'confirmada' else 'estado' }}">
+              {{ 'Confirmada' if r.estado == 'confirmada' else 'Por confirmar' }}</span></td>
+            <td class="acciones gestion">
+              {% if r.estado == 'nueva' %}
+              <form method="post" action="{{ url_for('admin.reserva_estado', rid=r.id) }}">
+                <input type="hidden" name="estado" value="confirmada"><button class="btn small primary">Confirmar</button>
+              </form>
+              {% endif %}
+              <form method="post" action="{{ url_for('admin.reserva_estado', rid=r.id) }}"
+                    onsubmit="return confirm('¿Cancelar esta reserva?')">
+                <input type="hidden" name="estado" value="cancelada"><button class="btn small danger">Cancelar</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          {# ── Reserva corporativa (solicitud de evento) ── #}
+          <tr id="evento-{{ r.id }}" class="{{ 'fila-sin-contactar' if r.estado == 'nueva' else 'fila-contactada' }}">
+            <td>{{ r.creado_en.strftime('%d/%m %H:%M') if r.creado_en }}</td>
+            <td>{{ r.fecha_estimada or '—' }}</td>
+            <td>
+              {{ r.nombre_contacto or r.wa_id }}{% if r.empresa %} ({{ r.empresa }}){% endif %}
+              {% if r.telefono_contacto %}<br><small>{{ r.telefono_contacto }}</small>{% endif %}
+              {% if r.horario_contacto %}<br><small>📞 contactar: {{ r.horario_contacto }}</small>{% endif %}
+            </td>
+            <td>{{ r.cantidad_personas if r.cantidad_personas is not none else '—' }}</td>
+            <td><span class="badge corporativa">Corporativa</span></td>
+            <td>
+              {% if r.estado == 'nueva' %}<span class="badge nohay">⛔ Sin contactar</span>
+              {% elif r.estado == 'confirmada' %}<span class="badge hay">✅ Confirmada</span>
+              {% else %}<span class="badge hay">✅ Contactado</span>{% endif %}
+            </td>
+            <td class="acciones gestion">
+              {% if r.estado == 'confirmada' %}
+                <small>{{ r.notas_confirmacion or 'Confirmada' }}</small>
+              {% else %}
+                {% if r.estado == 'nueva' %}
+                <form method="post" action="{{ url_for('admin.solicitud_estado', sid=r.id) }}">
+                  <input type="hidden" name="estado" value="contactado"><button class="btn small link">Marcar contactado</button>
+                </form>
+                {% endif %}
+                <form method="post" action="{{ url_for('admin.solicitud_estado', sid=r.id) }}">
+                  <input type="hidden" name="estado" value="confirmada">
+                  <input name="notas_confirmacion" placeholder="Día/hora · personas · menú acordado"
+                         value="{{ r.notas_confirmacion or '' }}">
+                  <button class="btn small primary">Confirmar reserva</button>
+                </form>
+                <form method="post" action="{{ url_for('admin.solicitud_estado', sid=r.id) }}">
+                  <input type="hidden" name="estado" value="cancelada"><button class="btn small danger">Cancelar</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 </div>
 
-{% if tab == 'corporativas' %}
-  {% include 'admin/_reservas_corporativas.html' %}
-{% else %}
-  {% include 'admin/_reservas_comunes.html' %}
+{% if es_admin %}
+  {% include 'admin/_corporativas_config.html' %}
 {% endif %}
 {% endblock %}
