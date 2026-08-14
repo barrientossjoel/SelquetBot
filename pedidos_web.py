@@ -12,8 +12,8 @@ import os
 from datetime import datetime
 from urllib.parse import quote
 
-from flask import (Blueprint, abort, redirect, render_template, request,
-                   url_for)
+from flask import (Blueprint, Response, abort, redirect, render_template,
+                   request, url_for)
 
 import config_store
 import pedidos
@@ -117,6 +117,21 @@ def crear():
                                error=res.get('mensaje', 'No pude registrar el pedido.'),
                                form=form), 502
     return redirect(url_for('pedir.confirmacion', pid=res['pedido_id']))
+
+
+@pedir_bp.route('/pedir/<int:pid>/comanda.pdf', methods=['GET'])
+def comanda_pdf(pid):
+    """PDF de la comanda del pedido, para que el proveedor de WhatsApp lo adjunte
+    (y el cliente lo muestre al retirar)."""
+    import comanda
+    pedido = pedidos.obtener(pid)
+    if not pedido or pedido.canal != 'web':
+        abort(404)
+    data = comanda.pdf_bytes(pedido)
+    return Response(data, mimetype='application/pdf', headers={
+        'Content-Disposition': f'inline; filename="Comanda-{pid}.pdf"',
+        'Cache-Control': 'no-cache',
+    })
 
 
 @pedir_bp.route('/pedir/<int:pid>', methods=['GET'])

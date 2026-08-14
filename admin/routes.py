@@ -494,8 +494,11 @@ def pedido_estado(pid):
 
 
 def _avisar_pedido_aprobado(pid):
-    """Al aprobar el pedido, le manda al comprador la confirmación + la comanda por
-    WhatsApp (para que la muestre al retirar)."""
+    """Al aprobar el pedido, le manda al comprador la confirmación + la comanda en
+    PDF por WhatsApp (para que la muestre al retirar). Si no hay URL pública para
+    el PDF, cae al texto."""
+    import os
+
     import pedidos
     from whatsapp.providers import get_provider
     pedido = pedidos.obtener(pid)
@@ -504,8 +507,15 @@ def _avisar_pedido_aprobado(pid):
     provider = get_provider()
     hr = pedido.hora_retiro.strftime('%H:%M') if pedido.hora_retiro else 'el horario acordado'
     provider.send_message(
-        pedido.wa_id, f'¡Tu pedido fue confirmado por el local! 🎉 Está en preparación. Lo retirás a las {hr}.')
-    provider.send_message(pedido.wa_id, pedidos.comanda_texto(pedido))
+        pedido.wa_id, f'¡Tu pedido fue confirmado por el local! 🎉 Está en preparación. '
+                      f'Lo retirás a las {hr}. Te paso la comanda 👇')
+    base = (os.getenv('PUBLIC_BASE_URL') or os.getenv('MP_BASE_URL') or '').rstrip('/')
+    if base:
+        provider.send_document(pedido.wa_id, f'{base}/pedir/{pid}/comanda.pdf',
+                               filename=f'Comanda {pedido.id}.pdf',
+                               caption='Mostrá esta comanda al retirar 🙌')
+    else:
+        provider.send_message(pedido.wa_id, pedidos.comanda_texto(pedido))
 
 
 # ── Opiniones ──
