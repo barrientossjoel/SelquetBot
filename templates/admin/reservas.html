@@ -1,0 +1,13 @@
+{% extends 'admin/base.html' %}
+{% block content %}
+<div class="subnav">
+  <a href="{{ url_for('admin.reservas') }}" class="{{ 'active' if tab == 'comunes' }}">Comunes</a>
+  <a href="{{ url_for('admin.reservas', tab='corporativas') }}" class="{{ 'active' if tab == 'corporativas' }}">Corporativas</a>
+</div>
+
+{% if tab == 'corporativas' %}
+  {% include 'admin/_reservas_corporativas.html' %}
+{% else %}
+  {% include 'admin/_reservas_comunes.html' %}
+{% endif %}
+{% endblock %}

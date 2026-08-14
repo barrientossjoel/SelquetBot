@@ -2,7 +2,7 @@
 
 Usuarios en la tabla `usuarios`, con rol:
 - admin: ve todas las solapas y puede prender/apagar el bot.
-- local: solo Eventos y Operación; no puede apagar el bot.
+- local: solo las operativas (Reservas, Takeaway, Opiniones); no puede apagar el bot.
 
 El control de acceso es centralizado (un `before_request` en routes.py lo aplica
 a todo el blueprint): acá viven las reglas declarativas y la función que decide.
@@ -16,26 +16,29 @@ from models import Usuario
 
 # Solapas accesibles por rol. Mantener alineado con las tabs de base.html.
 SOLAPAS_POR_ROL = {
-    'admin': ('informacion', 'faqs', 'menu', 'mesas', 'eventos', 'operacion'),
-    'local': ('eventos', 'operacion'),
+    'admin': ('informacion', 'faqs', 'menu', 'mesas', 'reservas', 'takeaway', 'opiniones'),
+    'local': ('reservas', 'takeaway', 'opiniones'),
 }
 
 # Endpoints del panel que no requieren sesión.
 ENDPOINTS_PUBLICOS = ('login', 'logout', 'static')
 
-# Endpoints que requieren sesión pero no pertenecen a una solapa (no se chequea rol).
-ENDPOINTS_NEUTROS = ('home',)
+# Endpoints que requieren sesión pero no pertenecen a una solapa (no se chequea
+# rol): 'home' (redirige a la landing) y el polling de avisos (lo consulta el JS
+# desde cualquier página operativa, sin importar el rol).
+ENDPOINTS_NEUTROS = ('home', 'notificaciones_pendientes')
 
 # A qué solapa pertenece cada endpoint. Lo que NO figure acá se considera
 # configuración → solo admin (fail-closed: una ruta nueva queda protegida por
 # defecto hasta clasificarla).
 ENDPOINTS_POR_SOLAPA = {
-    # Eventos: el local ve la solapa y gestiona las solicitudes recibidas. La
-    # configuración (reporte a jefes, destinatarios de notificación) es solo de
-    # admin, así que NO va acá → queda sin clasificar → fail-closed (solo admin).
-    'eventos': ('eventos', 'solicitud_estado'),
-    'operacion': ('operacion', 'operacion_tabla', 'pedidos_config',
-                  'notificaciones_pendientes', 'reserva_estado', 'pedido_estado'),
+    # Reservas incluye la sub-solapa Corporativas (solicitudes de eventos): el
+    # local gestiona reservas y solicitudes. La configuración de Corporativas
+    # (reporte a jefes, destinatarios de notificación) es solo de admin, así que
+    # NO va acá → queda sin clasificar → fail-closed (solo admin).
+    'reservas': ('reservas', 'reserva_estado', 'solicitud_estado'),
+    'takeaway': ('takeaway', 'takeaway_tabla', 'pedidos_config', 'pedido_estado'),
+    'opiniones': ('opiniones',),
 }
 
 
@@ -69,7 +72,7 @@ def solapas_permitidas() -> tuple:
 
 
 def landing_endpoint() -> str:
-    """Primera solapa según el rol (admin → Información, local → Eventos)."""
+    """Primera solapa según el rol (admin → Información, local → Reservas)."""
     permitidas = solapas_permitidas()
     return f"admin.{permitidas[0]}" if permitidas else 'admin.login'
 

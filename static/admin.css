@@ -145,6 +145,23 @@ td.gestion .btn { width: 100%; }
 .preview { border: 2px dashed var(--warn); background: #fffbeb; }
 .preview .preview-meta { color: var(--warn); font-weight: 600; font-size: 13px; margin-bottom: 12px; }
 
+/* Reservas comunes: por confirmar (30%) | confirmadas del día (70%) */
+.reservas-split { display: flex; gap: 20px; align-items: flex-start; }
+.reservas-split .col-nuevas { flex: 0 0 30%; min-width: 260px; }
+.reservas-split .col-dia { flex: 1; }
+.reserva-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 12px 0; border-bottom: 1px solid var(--line);
+}
+.reserva-item:last-child { border-bottom: 0; }
+.reserva-info { display: flex; flex-direction: column; gap: 2px; }
+.reserva-info span { color: var(--muted); font-size: 13px; }
+.reserva-item .acciones { display: flex; gap: 8px; }
+@media (max-width: 900px) {
+  .reservas-split { flex-direction: column; }
+  .reservas-split .col-nuevas { flex: 1 1 auto; width: 100%; }
+}
+
 /* Sub-nav Operación */
 .subnav { display: flex; gap: 6px; margin-bottom: 16px; }
 .subnav a {

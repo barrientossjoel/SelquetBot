@@ -25,7 +25,7 @@
   </header>
 
   <nav class="tabs">
-    {% set tabs = [('informacion', 'Información'), ('faqs', 'FAQs'), ('menu', 'Menú'), ('mesas', 'Mesas'), ('eventos', 'Eventos'), ('operacion', 'Operación')] %}
+    {% set tabs = [('informacion', 'Información'), ('faqs', 'FAQs'), ('menu', 'Menú'), ('mesas', 'Mesas'), ('reservas', 'Reservas'), ('takeaway', 'Takeaway'), ('opiniones', 'Opiniones')] %}
     {% for key, label in tabs if key in solapas %}
       <a href="{{ url_for('admin.' ~ key) }}" class="{{ 'active' if active == key }}">{{ label }}</a>
     {% endfor %}

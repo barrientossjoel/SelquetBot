@@ -1,0 +1,27 @@
+{% extends 'admin/base.html' %}
+{% block content %}
+<div class="card">
+  <div class="ped-web-config">
+    <h2>Pedidos online</h2>
+    <p class="hint">Compartí este link para que los clientes armen su pedido de takeaway.
+      Los pedidos caen acá automáticamente.</p>
+    <div class="row-form" style="align-items:center">
+      <input readonly value="{{ link_pedir }}" onclick="this.select()" style="flex:1">
+      <a class="btn ghost" href="{{ link_pedir }}" target="_blank" rel="noopener">Abrir</a>
+    </div>
+    <form method="post" action="{{ url_for('admin.pedidos_config') }}" class="row-form" style="margin-top:10px">
+      <input name="whatsapp_local" placeholder="WhatsApp del local (recibe los pedidos, ej. 11 5619-4427)"
+             value="{{ whatsapp_local }}" style="flex:1">
+      <button class="btn primary">Guardar</button>
+    </form>
+    <p class="hint">Si lo cargás, la pantalla de confirmación le ofrece al cliente enviarte el pedido por WhatsApp.</p>
+  </div>
+</div>
+
+<div class="card">
+  {# La tabla se auto-refresca cuando entra un pedido nuevo (polling del JS). #}
+  <div id="op-tabla" data-vista="pedidos" data-fragment-url="{{ url_for('admin.takeaway_tabla') }}">
+    {% include 'admin/_tabla_pedidos.html' %}
+  </div>
+</div>
+{% endblock %}

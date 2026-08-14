@@ -1,8 +1,8 @@
 """Panel de administración de SELQUET (blueprint Flask).
 
-Cuatro solapas: Información · FAQs · Menú · Operación. Todo lo que se edita acá
-es lo que el bot lee en cada consulta (config, faqs, menu). Operación es de solo
-lectura y por ahora arranca vacía (la llenan las fases 3-4).
+Solapas de configuración: Información · FAQs · Menú · Mesas (lo que el bot lee en
+cada consulta). Solapas operativas: Reservas (comunes + corporativas) · Takeaway ·
+Opiniones, donde el local gestiona lo que va entrando.
 """
 import json
 import re
@@ -386,67 +386,58 @@ def mesa_borrar(cid):
     return redirect(url_for('admin.mesas'))
 
 
-# ─── Solapa Operación ───
+# ─── Solapas operativas: Reservas · Takeaway · Opiniones ───
 
-_VISTAS_OP = ('pedidos', 'reservas', 'opiniones')
-
-
-def _operacion_datos(vista, fecha):
-    """Carga las filas de una vista de Operación (pedidos/reservas/opiniones).
-    Único punto de lectura, usado por la página y por el fragmento."""
+def _rango_dia(fecha_str):
+    """(inicio, fin) del día para filtrar por fecha, o (None, None) si no es válida."""
     from datetime import datetime, timedelta
-    vista = vista if vista in _VISTAS_OP else 'pedidos'
+    try:
+        d = datetime.strptime(fecha_str, '%Y-%m-%d')
+        return d, d + timedelta(days=1)
+    except (ValueError, TypeError):
+        return None, None
+
+
+# ── Reservas (sub-solapas: comunes / corporativas) ──
+
+@admin_bp.route('/reservas')
+def reservas():
+    return (_reservas_corporativas() if request.args.get('tab') == 'corporativas'
+            else _reservas_comunes())
+
+
+def _reservas_comunes():
+    """Vista partida: por confirmar (todas) + confirmadas del día elegido."""
+    from datetime import datetime
+    fecha = (request.args.get('fecha') or datetime.now().strftime('%Y-%m-%d')).strip()
+    ini, fin = _rango_dia(fecha)
     db = SessionLocal()
     try:
-        if vista == 'reservas':
-            filas = db.query(Reserva).order_by(Reserva.fecha_hora.desc()).all()
-        elif vista == 'opiniones':
-            q = db.query(Opinion).order_by(Opinion.creado_en.desc())
-            if fecha:
-                try:
-                    d = datetime.strptime(fecha, '%Y-%m-%d')
-                    q = q.filter(Opinion.creado_en >= d, Opinion.creado_en < d + timedelta(days=1))
-                except ValueError:
-                    pass
-            filas = q.all()
-        else:
-            filas = db.query(Pedido).order_by(Pedido.creado_en.desc()).all()
-        return vista, list(filas)
+        por_confirmar = (db.query(Reserva).filter(Reserva.estado == 'nueva')
+                         .order_by(Reserva.fecha_hora).all())
+        q = db.query(Reserva).filter(Reserva.estado == 'confirmada')
+        if ini:
+            q = q.filter(Reserva.fecha_hora >= ini, Reserva.fecha_hora < fin)
+        del_dia = q.order_by(Reserva.fecha_hora).all()
     finally:
         db.close()
+    return render_template('admin/reservas.html', active='reservas', tab='comunes',
+                           por_confirmar=por_confirmar, del_dia=del_dia, fecha=fecha)
 
 
-@admin_bp.route('/operacion')
-def operacion():
-    import os
-    fecha = (request.args.get('fecha') or '').strip()
-    vista, filas = _operacion_datos(request.args.get('vista', 'pedidos'), fecha)
-    base = (os.getenv('PUBLIC_BASE_URL') or os.getenv('MP_BASE_URL') or '').rstrip('/')
-    return render_template('admin/operacion.html', active='operacion', vista=vista, filas=filas, fecha=fecha,
-                           link_pedir=(f'{base}/pedir' if base else url_for('pedir.menu', _external=True)),
-                           whatsapp_local=config_store.get_config('whatsapp_local', ''))
-
-
-@admin_bp.route('/operacion/tabla')
-def operacion_tabla():
-    """Fragmento HTML de la tabla de Operación, para refrescar sin recargar la página."""
-    fecha = (request.args.get('fecha') or '').strip()
-    vista, filas = _operacion_datos(request.args.get('vista', 'pedidos'), fecha)
-    return render_template(f'admin/_tabla_{vista}.html', vista=vista, filas=filas, fecha=fecha)
-
-
-@admin_bp.route('/pedidos/config', methods=['POST'])
-def pedidos_config():
-    config_store.set_config({'whatsapp_local': _normalizar_wa(request.form.get('whatsapp_local')) or ''})
-    flash('WhatsApp del local guardado', 'ok')
-    return redirect(url_for('admin.operacion', vista='pedidos'))
-
-
-@admin_bp.route('/notificaciones/pendientes')
-def notificaciones_pendientes():
-    """Notificaciones nuevas para la campana del panel (polling). Se marcan como
-    entregadas al leerlas, para no repetirlas."""
-    return {'notificaciones': notificaciones_panel.pendientes()}
+def _reservas_corporativas():
+    db = SessionLocal()
+    try:
+        destinatarios = db.query(DestinatarioEvento).order_by(DestinatarioEvento.id.desc()).all()
+        solicitudes = db.query(SolicitudEvento).order_by(SolicitudEvento.creado_en.desc()).all()
+    finally:
+        db.close()
+    cfg = config_store.get_all_config()
+    return render_template('admin/reservas.html', active='reservas', tab='corporativas',
+                           destinatarios=destinatarios, solicitudes=solicitudes,
+                           jefe_whatsapp=cfg.get('jefe_whatsapp', ''),
+                           jefe_email=cfg.get('jefe_email', ''),
+                           hora_reporte=cfg.get('hora_reporte', '23:00'))
 
 
 @admin_bp.route('/reservas/<int:rid>/estado', methods=['POST'])
@@ -461,10 +452,42 @@ def reserva_estado(rid):
                 db.commit()
         finally:
             db.close()
-    return redirect(url_for('admin.operacion', vista='reservas'))
+    return redirect(url_for('admin.reservas'))
 
 
-@admin_bp.route('/pedidos/<int:pid>/estado', methods=['POST'])
+# ── Takeaway (pedidos) ──
+
+def _pedidos():
+    db = SessionLocal()
+    try:
+        return db.query(Pedido).order_by(Pedido.creado_en.desc()).all()
+    finally:
+        db.close()
+
+
+@admin_bp.route('/takeaway')
+def takeaway():
+    import os
+    base = (os.getenv('PUBLIC_BASE_URL') or os.getenv('MP_BASE_URL') or '').rstrip('/')
+    return render_template('admin/takeaway.html', active='takeaway', filas=_pedidos(),
+                           link_pedir=(f'{base}/pedir' if base else url_for('pedir.menu', _external=True)),
+                           whatsapp_local=config_store.get_config('whatsapp_local', ''))
+
+
+@admin_bp.route('/takeaway/tabla')
+def takeaway_tabla():
+    """Fragmento HTML de la tabla de pedidos, para refrescar sin recargar la página."""
+    return render_template('admin/_tabla_pedidos.html', filas=_pedidos())
+
+
+@admin_bp.route('/takeaway/config', methods=['POST'], endpoint='pedidos_config')
+def pedidos_config():
+    config_store.set_config({'whatsapp_local': _normalizar_wa(request.form.get('whatsapp_local')) or ''})
+    flash('WhatsApp del local guardado', 'ok')
+    return redirect(url_for('admin.takeaway'))
+
+
+@admin_bp.route('/takeaway/<int:pid>/estado', methods=['POST'], endpoint='pedido_estado')
 def pedido_estado(pid):
     nuevo = request.form.get('estado', '')
     if nuevo in ('pagado', 'preparado', 'retirado', 'cancelado'):
@@ -476,28 +499,36 @@ def pedido_estado(pid):
                 db.commit()
         finally:
             db.close()
-    return redirect(url_for('admin.operacion', vista='pedidos'))
+    return redirect(url_for('admin.takeaway'))
 
 
-# ─── Solapa Eventos (destinatarios de notificación + solicitudes recibidas) ───
+# ── Opiniones ──
 
-@admin_bp.route('/eventos')
-def eventos():
+@admin_bp.route('/opiniones')
+def opiniones():
+    fecha = (request.args.get('fecha') or '').strip()
+    ini, fin = _rango_dia(fecha)
     db = SessionLocal()
     try:
-        destinatarios = db.query(DestinatarioEvento).order_by(DestinatarioEvento.id.desc()).all()
-        solicitudes = db.query(SolicitudEvento).order_by(SolicitudEvento.creado_en.desc()).all()
+        q = db.query(Opinion).order_by(Opinion.creado_en.desc())
+        if ini:
+            q = q.filter(Opinion.creado_en >= ini, Opinion.creado_en < fin)
+        filas = q.all()
     finally:
         db.close()
-    cfg = config_store.get_all_config()
-    return render_template('admin/eventos.html', active='eventos',
-                           destinatarios=destinatarios, solicitudes=solicitudes,
-                           jefe_whatsapp=cfg.get('jefe_whatsapp', ''),
-                           jefe_email=cfg.get('jefe_email', ''),
-                           hora_reporte=cfg.get('hora_reporte', '23:00'))
+    return render_template('admin/opiniones.html', active='opiniones', filas=filas, fecha=fecha)
 
 
-@admin_bp.route('/eventos/jefe', methods=['POST'])
+@admin_bp.route('/notificaciones/pendientes')
+def notificaciones_pendientes():
+    """Notificaciones nuevas para la campana del panel (polling). Se marcan como
+    entregadas al leerlas, para no repetirlas."""
+    return {'notificaciones': notificaciones_panel.pendientes()}
+
+
+# ── Corporativas: configuración (solo admin) + gestión de solicitudes ──
+
+@admin_bp.route('/reservas/corporativas/jefe', methods=['POST'], endpoint='eventos_jefe')
 def eventos_jefe():
     numeros = [_normalizar_wa(x) for x in re.split(r'[,\n;]+', request.form.get('jefe_whatsapp') or '')]
     config_store.set_config({
@@ -506,10 +537,10 @@ def eventos_jefe():
         'hora_reporte': (request.form.get('hora_reporte') or '23:00').strip(),
     })
     flash('Reporte diario configurado', 'ok')
-    return redirect(url_for('admin.eventos'))
+    return redirect(url_for('admin.reservas', tab='corporativas'))
 
 
-@admin_bp.route('/eventos/reporte/enviar', methods=['POST'])
+@admin_bp.route('/reservas/corporativas/reporte/enviar', methods=['POST'], endpoint='eventos_reporte_enviar')
 def eventos_reporte_enviar():
     import reporte
     resultado = reporte.enviar()
@@ -517,17 +548,17 @@ def eventos_reporte_enviar():
         flash(f'Reporte enviado ({resultado["enviados"]} destino/s)', 'ok')
     else:
         flash('No hay jefe configurado (WhatsApp o email)', 'error')
-    return redirect(url_for('admin.eventos'))
+    return redirect(url_for('admin.reservas', tab='corporativas'))
 
 
-@admin_bp.route('/eventos/destinatarios/nuevo', methods=['POST'])
+@admin_bp.route('/reservas/corporativas/destinatarios/nuevo', methods=['POST'], endpoint='evento_destinatario_nuevo')
 def evento_destinatario_nuevo():
     nombre = (request.form.get('nombre') or '').strip()
     email = (request.form.get('email') or '').strip()
     whatsapp = _normalizar_wa(request.form.get('whatsapp'))
     if not nombre or not (email or whatsapp):
         flash('Nombre y al menos un email o WhatsApp son obligatorios', 'error')
-        return redirect(url_for('admin.eventos'))
+        return redirect(url_for('admin.reservas', tab='corporativas'))
     db = SessionLocal()
     try:
         db.add(DestinatarioEvento(nombre=nombre, email=email or None, whatsapp=whatsapp, activo=True))
@@ -535,10 +566,10 @@ def evento_destinatario_nuevo():
         flash('Destinatario agregado', 'ok')
     finally:
         db.close()
-    return redirect(url_for('admin.eventos'))
+    return redirect(url_for('admin.reservas', tab='corporativas'))
 
 
-@admin_bp.route('/eventos/destinatarios/<int:did>/toggle', methods=['POST'])
+@admin_bp.route('/reservas/corporativas/destinatarios/<int:did>/toggle', methods=['POST'], endpoint='evento_destinatario_toggle')
 def evento_destinatario_toggle(did):
     db = SessionLocal()
     try:
@@ -548,10 +579,10 @@ def evento_destinatario_toggle(did):
             db.commit()
     finally:
         db.close()
-    return redirect(url_for('admin.eventos'))
+    return redirect(url_for('admin.reservas', tab='corporativas'))
 
 
-@admin_bp.route('/eventos/destinatarios/<int:did>/borrar', methods=['POST'])
+@admin_bp.route('/reservas/corporativas/destinatarios/<int:did>/borrar', methods=['POST'], endpoint='evento_destinatario_borrar')
 def evento_destinatario_borrar(did):
     db = SessionLocal()
     try:
@@ -562,10 +593,10 @@ def evento_destinatario_borrar(did):
             flash('Destinatario eliminado', 'ok')
     finally:
         db.close()
-    return redirect(url_for('admin.eventos'))
+    return redirect(url_for('admin.reservas', tab='corporativas'))
 
 
-@admin_bp.route('/eventos/solicitudes/<int:sid>/estado', methods=['POST'])
+@admin_bp.route('/reservas/corporativas/solicitudes/<int:sid>/estado', methods=['POST'], endpoint='solicitud_estado')
 def solicitud_estado(sid):
     nuevo = request.form.get('estado', '')
     if nuevo in ('nueva', 'contactado', 'confirmada', 'cancelada'):
@@ -581,4 +612,4 @@ def solicitud_estado(sid):
                 flash('Solicitud actualizada', 'ok')
         finally:
             db.close()
-    return redirect(url_for('admin.eventos'))
+    return redirect(url_for('admin.reservas', tab='corporativas'))

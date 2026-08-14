@@ -11,11 +11,11 @@
 
   var EMOJI = { pedido: '🛒', reserva: '🍽️', evento: '🎉' };
   var RUTA = {
-    pedido:  function (id) { return '/admin/operacion?vista=pedidos&focus=pedido-' + id; },
-    reserva: function (id) { return '/admin/operacion?vista=reservas&focus=reserva-' + id; },
-    evento:  function (id) { return '/admin/eventos?focus=evento-' + id; },
+    pedido:  function (id) { return '/admin/takeaway?focus=pedido-' + id; },
+    reserva: function (id) { return '/admin/reservas?focus=reserva-' + id; },
+    evento:  function (id) { return '/admin/reservas?tab=corporativas&focus=evento-' + id; },
   };
-  var VISTA_DE_TIPO = { pedido: 'pedidos', reserva: 'reservas' };  // eventos viven en otra página
+  var VISTA_DE_TIPO = { pedido: 'pedidos' };  // solo Takeaway se refresca en vivo
 
   // ── permisos ──
   function pedirPermiso() { if (soportado && Notification.permission === 'default') Notification.requestPermission().then(actualizarBtn); }
@@ -80,11 +80,10 @@
   }
 
   // ── refresco de la tabla abierta (sin recargar) ──
-  function refrescar(cont, vista) {
-    var qs = 'vista=' + encodeURIComponent(vista);
-    var fecha = new URLSearchParams(window.location.search).get('fecha');
-    if (fecha) qs += '&fecha=' + encodeURIComponent(fecha);
-    fetch('/admin/operacion/tabla?' + qs, { cache: 'no-store' })
+  function refrescar(cont) {
+    var url = cont.getAttribute('data-fragment-url');
+    if (!url) return;
+    fetch(url, { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.text() : null; })
       .then(function (html) { if (html != null) cont.innerHTML = html; });
   }
@@ -92,7 +91,7 @@
     var cont = document.getElementById('op-tabla');
     if (!cont) return;
     var vista = cont.getAttribute('data-vista');
-    if (nuevas.some(function (n) { return VISTA_DE_TIPO[n.tipo] === vista; })) refrescar(cont, vista);
+    if (nuevas.some(function (n) { return VISTA_DE_TIPO[n.tipo] === vista; })) refrescar(cont);
   }
 
   // ── polling ──
