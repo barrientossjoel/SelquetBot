@@ -6,7 +6,7 @@
   <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Ítems</th><th>Total</th><th>Pago</th><th>Estado</th><th>Retiro</th><th></th></tr></thead>
   <tbody>
     {% for p in filas %}
-      <tr id="pedido-{{ p.id }}" class="{{ 'inactiva' if p.estado in ('pendiente_pago', 'cancelado') }}">
+      <tr id="pedido-{{ p.id }}" class="{% if p.estado in ('pendiente_pago', 'cancelado') %}inactiva{% elif p.estado in ('pagado', 'confirmado') %}alerta-pendiente{% endif %}">
         <td>{{ p.id }}</td>
         <td>{{ p.creado_en.strftime('%d/%m %H:%M') if p.creado_en }}</td>
         <td>

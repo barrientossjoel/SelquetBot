@@ -22,7 +22,7 @@
       {% for tipo, r in items %}
         {% if tipo == 'comun' %}
           {# ── Reserva común (mesa) ── #}
-          <tr id="reserva-{{ r.id }}">
+          <tr id="reserva-{{ r.id }}" class="{{ 'alerta-pendiente' if r.estado == 'nueva' }}">
             <td>{{ r.creado_en.strftime('%d/%m %H:%M') if r.creado_en }}</td>
             <td>{{ r.fecha_hora.strftime('%d/%m %H:%M') if r.fecha_hora }}</td>
             <td>{{ r.nombre or r.wa_id }}</td>
@@ -44,7 +44,7 @@
           </tr>
         {% else %}
           {# ── Reserva corporativa (solicitud de evento) ── #}
-          <tr id="evento-{{ r.id }}" class="{{ 'fila-sin-contactar' if r.estado == 'nueva' else 'fila-contactada' }}">
+          <tr id="evento-{{ r.id }}" class="{% if r.estado == 'nueva' %}fila-sin-contactar alerta-pendiente{% else %}fila-contactada{% endif %}">
             <td>{{ r.creado_en.strftime('%d/%m %H:%M') if r.creado_en }}</td>
             <td>{{ r.fecha_estimada or '—' }}</td>
             <td>

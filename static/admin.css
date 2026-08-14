@@ -122,6 +122,19 @@ tr.fila-sin-contactar td:first-child { box-shadow: inset 3px 0 0 var(--danger); 
 tr.fila-contactada td { background: #f0fdf4; }
 tr.fila-contactada td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 td input { margin-top: 0; }
+
+/* Alerta de pendientes SIN atender: titila (color) y late (escala) para molestar
+   hasta que se resuelva. Se aplica a filas de tabla y a las tarjetas de reserva. */
+@keyframes alerta-bg { 0%, 100% { background: #fee2e2; } 50% { background: #f87171; } }
+@keyframes alerta-late {
+  0%, 100% { transform: scale(1);     box-shadow: 0 0 0 0 rgba(220, 38, 38, .55); }
+  50%      { transform: scale(1.02);  box-shadow: 0 0 0 7px rgba(220, 38, 38, .10); }
+}
+tr.alerta-pendiente td { animation: alerta-bg 1s ease-in-out infinite; }
+.reserva-item.alerta-pendiente {
+  animation: alerta-late 1s ease-in-out infinite;
+  border-radius: 8px; padding-left: 10px; padding-right: 10px;
+}
 .acciones { white-space: nowrap; text-align: right; }
 .acciones form { display: inline; }
 

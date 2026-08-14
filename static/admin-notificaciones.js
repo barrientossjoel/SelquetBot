@@ -54,9 +54,11 @@
   function beep(freq, cuando, dur) {
     var osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
     osc.connect(gain); gain.connect(audioCtx.destination);
-    osc.type = 'sine'; osc.frequency.value = freq;
+    osc.type = 'square';   // onda cuadrada: más fuerte y "molesta" que la sine
+    osc.frequency.value = freq;
     gain.gain.setValueAtTime(0.0001, cuando);
-    gain.gain.exponentialRampToValueAtTime(0.12, cuando + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.38, cuando + 0.01);
+    gain.gain.setValueAtTime(0.38, cuando + dur - 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, cuando + dur);
     osc.start(cuando); osc.stop(cuando + dur);
   }
@@ -64,7 +66,32 @@
     desbloquearAudio();
     if (!audioCtx) return;
     var t = audioCtx.currentTime;
-    beep(880, t, 0.18); beep(880, t + 0.25, 0.18); beep(1175, t + 0.5, 0.28);
+    // Alarma de ~2,2s: 3 repeticiones de dos tonos alternados (tipo sirena).
+    for (var i = 0; i < 3; i++) {
+      var b = t + i * 0.75;
+      beep(988, b, 0.2);
+      beep(1319, b + 0.24, 0.28);
+    }
+  }
+
+  // Notificación del navegador que aparece aunque estén en otra pestaña y queda
+  // fija hasta que la cierran (requireInteraction). Mismo tag → no se acumulan.
+  function notificarPersistente(msg) {
+    if (!(soportado && Notification.permission === 'granted')) return;
+    try {
+      var n = new Notification('SELQUET · ¡Atención!', {
+        body: msg, icon: '/static/selquet-logo.svg',
+        tag: 'selquet-pendientes', renotify: true, requireInteraction: true,
+      });
+      n.onclick = function () { window.focus(); n.close(); };
+    } catch (e) { /* sin notificación */ }
+  }
+  function mensajePendientes(d) {
+    var p = [];
+    if (d.pedidos) p.push(d.pedidos + ' pedido' + (d.pedidos > 1 ? 's' : ''));
+    if (d.reservas) p.push(d.reservas + ' reserva' + (d.reservas > 1 ? 's' : ''));
+    if (d.corporativas) p.push(d.corporativas + ' corporativa' + (d.corporativas > 1 ? 's' : ''));
+    return '🔴 ' + p.join(' · ') + ' sin atender. ¡Respondé!';
   }
 
   // ── alerta persistente: titila el título y suena mientras haya pendientes ──
@@ -89,8 +116,12 @@
         if (!d) return;
         var antes = pendientes;
         pendientes = d.total || 0;
-        // Suena si aparece algo nuevo, y sigue insistiendo (cada ~3 ciclos) mientras queden.
-        if (pendientes > 0 && (pendientes > antes || ciclos % 3 === 0)) sonar();
+        // Suena y avisa si aparece algo nuevo, y sigue insistiendo (cada ~3 ciclos)
+        // mientras queden pendientes sin atender.
+        if (pendientes > 0 && (pendientes > antes || ciclos % 3 === 0)) {
+          sonar();
+          notificarPersistente(mensajePendientes(d));
+        }
         ciclos++;
       })
       .catch(function () { /* red caída: reintenta */ });
