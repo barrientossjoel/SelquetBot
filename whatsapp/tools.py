@@ -17,7 +17,8 @@ TOOLS = [
     {
         'name': 'consultar_disponibilidad',
         'description': 'Verifica si hay lugar para una reserva en una fecha, hora y cantidad de personas. '
-                       'Usalo cuando el cliente pregunta si hay lugar, antes de confirmar la reserva.',
+                       'Usalo cuando el cliente pregunta si hay lugar, antes de confirmar la reserva. '
+                       'Las reservas requieren al menos 3 horas de anticipación desde ahora.',
         'input_schema': {
             'type': 'object',
             'properties': {
@@ -31,7 +32,8 @@ TOOLS = [
     {
         'name': 'crear_reserva',
         'description': 'Registra una reserva (re-verifica disponibilidad). Antes de llamarla asegurate de '
-                       'tener nombre, fecha, hora y personas. La reserva queda pendiente de que el local la confirme.',
+                       'tener nombre, fecha, hora y personas. La reserva queda pendiente de que el local la confirme. '
+                       'Requiere al menos 3 horas de anticipación desde ahora.',
         'input_schema': {
             'type': 'object',
             'properties': {
@@ -48,7 +50,8 @@ TOOLS = [
         'description': 'Arma un pedido para llevar: calcula el total desde el menú, valida el pedido mínimo '
                        'y genera el link de pago de MercadoPago. Antes de llamarla necesitás los productos '
                        'con cantidades y la hora de retiro. Pasale el link al cliente y aclarale que el pedido '
-                       'se manda a cocinar recién cuando paga. Usá los nombres tal como figuran en el menú.',
+                       'se manda a cocinar recién cuando paga. Usá los nombres tal como figuran en el menú. '
+                       'La hora de retiro debe ser al menos 30 minutos después de ahora.',
         'input_schema': {
             'type': 'object',
             'properties': {

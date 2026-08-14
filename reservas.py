@@ -10,14 +10,29 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 import notificaciones_panel
+from config_store import get_config
 from database import SessionLocal
+from formato import duracion_humana
 from models import MesaConfig, Reserva
 
 DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 _ESTADOS_ACTIVOS = ('nueva', 'confirmada')
+_ANTICIPACION_DEFAULT = 180  # minutos; el local puede cambiarlo (clave anticipacion_reserva_min)
+
+
+def _anticipacion_min() -> int:
+    try:
+        return int(get_config('anticipacion_reserva_min', str(_ANTICIPACION_DEFAULT)))
+    except (TypeError, ValueError):
+        return _ANTICIPACION_DEFAULT
 
 
 def disponibilidad(fecha_hora: datetime, personas: int) -> dict:
+    minimo = _anticipacion_min()
+    if fecha_hora < datetime.now() + timedelta(minutes=minimo):
+        return {'disponible': False, 'motivo': 'anticipacion',
+                'mensaje': f'Las reservas se toman con al menos {duracion_humana(minimo)} de anticipación. '
+                           f'Ofrecele un horario más tarde.'}
     config = _config_para(fecha_hora)
     if config is None:
         return {'disponible': False, 'motivo': 'sin_horario',

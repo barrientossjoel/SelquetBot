@@ -8,14 +8,37 @@ from __future__ import annotations
 
 import os
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import notificaciones_panel
 import pagos
 from config_store import get_config
 from database import SessionLocal
-from formato import pesos
+from formato import duracion_humana, pesos
 from models import MenuItem, Pedido
+
+_ANTICIPACION_DEFAULT = 30  # minutos; el local puede cambiarlo (clave anticipacion_pedido_min)
+
+
+def _anticipacion_min() -> int:
+    try:
+        return int(get_config('anticipacion_pedido_min', str(_ANTICIPACION_DEFAULT)))
+    except (TypeError, ValueError):
+        return _ANTICIPACION_DEFAULT
+
+
+def validar_hora_retiro(hora_retiro: datetime | None) -> dict | None:
+    """None si la hora de retiro es válida; dict de error si falta o no respeta el
+    mínimo de anticipación. Se valida en el borde de dominio (bot y web)."""
+    minimo = _anticipacion_min()
+    if hora_retiro is None:
+        return {'ok': False, 'motivo': 'sin_hora',
+                'mensaje': f'Necesito la hora de retiro (con al menos {duracion_humana(minimo)} desde ahora).'}
+    if hora_retiro < datetime.now() + timedelta(minutes=minimo):
+        return {'ok': False, 'motivo': 'anticipacion',
+                'mensaje': f'Los pedidos para llevar se retiran con al menos {duracion_humana(minimo)} '
+                           f'de anticipación. Ofrecele un horario más tarde.'}
+    return None
 
 
 def armar_pedido(items_pedido: list[dict]) -> dict:
@@ -54,6 +77,9 @@ def armar_pedido(items_pedido: list[dict]) -> dict:
 
 def crear_con_link(wa_id: str, items: list[dict], total: int, hora_retiro: datetime | None) -> dict:
     """Crea el pedido pendiente de pago y devuelve el link de MercadoPago."""
+    error = validar_hora_retiro(hora_retiro)
+    if error:
+        return error
     db = SessionLocal()
     try:
         pedido = Pedido(wa_id=wa_id, items=items, total=total,
@@ -88,6 +114,9 @@ def registrar_web(nombre: str, telefono: str, items: list[dict], total: int,
     """Crea un pedido hecho desde la web (/pedir). `items` ya viene validado por
     armar_pedido (con precios de la DB). Si el pago es MercadoPago, genera el
     link; si es al retirar, el pedido entra 'confirmado' (en firme)."""
+    error = validar_hora_retiro(hora_retiro)
+    if error:
+        return error
     es_mp = metodo_pago == 'mercadopago'
     db = SessionLocal()
     try:
