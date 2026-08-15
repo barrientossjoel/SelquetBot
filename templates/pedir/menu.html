@@ -3,11 +3,16 @@
 
 {% if error %}<div class="ped-error">{{ error }}</div>{% endif %}
 
-<p class="ped-intro">Elegí una categoría, sumá lo que quieras y confirmá tu pedido.</p>
+<p class="ped-intro">Buscá un producto o elegí una categoría, sumá lo que quieras y confirmá tu pedido.</p>
 {% if pedido_minimo %}<p class="ped-min">Pedido mínimo: {{ pedido_minimo | pesos }}</p>{% endif %}
+
+<div class="ped-buscar-wrap">
+  <input type="search" id="ped-buscar" class="ped-buscar" placeholder="🔍 Buscá un producto (ej. milanesa, café…)" autocomplete="off">
+</div>
 
 <form method="post" action="{{ url_for('pedir.crear') }}" id="ped-form">
   <input type="hidden" name="items_json" id="items_json" value="[]">
+  <p class="ped-sin-resultados" id="ped-sin-resultados" hidden>No encontramos productos con ese nombre.</p>
 
   {% if not categorias %}
     <p class="ped-vacio">Por ahora no hay productos disponibles.</p>
@@ -49,7 +54,10 @@
     <textarea name="notas" placeholder="Aclaraciones (opcional)">{{ form.get('notas', '') }}</textarea>
 
     <h2>¿Cómo pagás?</h2>
-    <p class="ped-min">💳 El pago es únicamente con <b>Mercado Pago</b>. Al confirmar te llevamos a pagar; el pedido se manda a cocinar cuando el pago queda confirmado.</p>
+    <div class="ped-pago-mp">
+      <img class="ped-mp-logo" src="{{ url_for('static', filename='mercadopago.svg') }}" alt="Mercado Pago">
+      <p>El pago es <b>únicamente con Mercado Pago</b>. Al confirmar te llevamos a pagar de forma segura; el pedido entra a cocina cuando el pago queda confirmado.</p>
+    </div>
   </section>
 
   <div class="ped-barra">
@@ -107,6 +115,29 @@
         head.parentElement.classList.toggle('open', !abierto);
       });
     });
+
+    // Buscador: filtra productos por nombre y abre las categorías con resultados.
+    var buscar = document.getElementById('ped-buscar');
+    var sinResultados = document.getElementById('ped-sin-resultados');
+    if (buscar) {
+      buscar.addEventListener('input', function () {
+        var q = buscar.value.trim().toLowerCase();
+        var totalVisibles = 0;
+        form.querySelectorAll('.ped-cat').forEach(function (sec) {
+          var visibles = 0;
+          sec.querySelectorAll('.ped-item').forEach(function (row) {
+            var match = !q || (row.dataset.nombre || '').toLowerCase().indexOf(q) !== -1;
+            row.style.display = match ? '' : 'none';
+            if (match) visibles++;
+          });
+          sec.style.display = visibles ? '' : 'none';
+          var head = sec.querySelector('.ped-cat-head');
+          if (q) { sec.classList.toggle('open', visibles > 0); head.setAttribute('aria-expanded', visibles > 0 ? 'true' : 'false'); }
+          totalVisibles += visibles;
+        });
+        if (sinResultados) sinResultados.hidden = !(q && totalVisibles === 0);
+      });
+    }
 
     // Steppers
     form.querySelectorAll('.ped-item').forEach(function (row) {

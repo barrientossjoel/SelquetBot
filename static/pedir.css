@@ -44,6 +44,20 @@ h1, h2, .ped-brand, .ped-cat-name, .ped-numero { font-family: Georgia, "Times Ne
 .ped-intro { color: var(--muted); font-size: .95rem; margin: 6px 2px 4px; }
 .ped-min { color: var(--brand); font-weight: 600; font-size: .9rem; margin: 2px 2px 14px; }
 .ped-error { background: #fdecea; border: 1px solid #f5b7b1; color: #922; padding: 12px 14px; border-radius: 10px; margin-bottom: 14px; }
+
+/* Buscador de productos */
+.ped-buscar-wrap { margin: 4px 2px 16px; }
+.ped-buscar {
+  width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
+  font-size: 1rem; background: var(--card); color: var(--ink);
+}
+.ped-buscar:focus { outline: 2px solid var(--gold); border-color: transparent; }
+.ped-sin-resultados { color: var(--muted); text-align: center; padding: 18px; font-size: .95rem; }
+
+/* Bloque de pago Mercado Pago */
+.ped-pago-mp { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+.ped-mp-logo { height: 46px; width: auto; flex: 0 0 auto; border-radius: 10px; }
+.ped-pago-mp p { margin: 0; color: var(--muted); font-size: .9rem; flex: 1; min-width: 190px; }
 .ped-vacio { color: var(--muted); text-align: center; padding: 40px 0; }
 
 /* Categorías (acordeón) */

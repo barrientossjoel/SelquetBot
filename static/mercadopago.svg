@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 54" width="230" height="54" role="img" aria-label="Mercado Pago">
+  <rect width="230" height="54" rx="10" fill="#009ee3"/>
+  <circle cx="33" cy="27" r="16" fill="#ffffff"/>
+  <text x="33" y="34" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#009ee3" text-anchor="middle">$</text>
+  <text x="135" y="33" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#ffffff" text-anchor="middle">Mercado Pago</text>
+</svg>
