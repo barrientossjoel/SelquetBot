@@ -1,22 +1,35 @@
 <h2>Opiniones y comentarios</h2>
+
+<div class="subnav" style="margin-bottom:12px">
+  <a href="{{ url_for('admin.opiniones', fecha=fecha) }}" class="{{ 'active' if not tipo }}">Todos</a>
+  <a href="{{ url_for('admin.opiniones', fecha=fecha, tipo='elogio') }}" class="{{ 'active' if tipo == 'elogio' }}">Buenos 👍</a>
+  <a href="{{ url_for('admin.opiniones', fecha=fecha, tipo='queja') }}" class="{{ 'active' if tipo == 'queja' }}">Malos 👎</a>
+</div>
+
 <form method="get" class="row-form" style="margin-bottom:14px; align-items:center">
-  <label class="hint">Ver comentarios del día:</label>
+  {% if tipo %}<input type="hidden" name="tipo" value="{{ tipo }}">{% endif %}
+  <label class="hint">Filtrar por día:</label>
   <input type="date" name="fecha" value="{{ fecha }}" style="flex:0 0 170px">
   <button class="btn primary">Ver</button>
-  {% if fecha %}<a class="btn ghost" href="{{ url_for('admin.opiniones') }}">Ver todos</a>{% endif %}
+  {% if fecha %}<a class="btn ghost" href="{{ url_for('admin.opiniones', tipo=tipo) }}">Quitar fecha</a>{% endif %}
 </form>
+
 {% if not filas %}
-  <p class="empty">{{ 'No hubo comentarios ese día.' if fecha else 'No hay opiniones todavía.' }}</p>
+  <p class="empty">No hay comentarios{{ ' para ese filtro' if (fecha or tipo) else ' todavía' }}.</p>
 {% else %}
 <table>
   <thead><tr><th>#</th><th>Fecha</th><th>Cliente</th><th>Tipo</th><th>Texto</th></tr></thead>
   <tbody>
     {% for o in filas %}
-      <tr>
+      <tr class="{% if o.tipo == 'elogio' %}fila-contactada{% elif o.tipo == 'queja' %}fila-sin-contactar{% endif %}">
         <td>{{ o.id }}</td>
         <td>{{ o.creado_en.strftime('%d/%m %H:%M') if o.creado_en }}</td>
         <td>{{ o.wa_id }}</td>
-        <td><span class="badge estado">{{ o.tipo }}</span></td>
+        <td>
+          {% if o.tipo == 'elogio' %}<span class="badge hay">👍 Bueno</span>
+          {% elif o.tipo == 'queja' %}<span class="badge nohay">👎 Malo</span>
+          {% else %}<span class="badge estado">Comentario</span>{% endif %}
+        </td>
         <td>{{ o.texto }}</td>
       </tr>
     {% endfor %}

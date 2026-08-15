@@ -428,16 +428,34 @@ def reservas():
 @admin_bp.route('/reservas/<int:rid>/estado', methods=['POST'])
 def reserva_estado(rid):
     nuevo = request.form.get('estado', '')
-    if nuevo in ('nueva', 'confirmada', 'cancelada', 'cumplida'):
-        db = SessionLocal()
-        try:
-            reserva = db.get(Reserva, rid)
-            if reserva:
-                reserva.estado = nuevo
-                db.commit()
-        finally:
-            db.close()
+    if nuevo not in ('nueva', 'confirmada', 'cancelada', 'cumplida'):
+        return redirect(url_for('admin.reservas'))
+    confirmada = None
+    db = SessionLocal()
+    try:
+        reserva = db.get(Reserva, rid)
+        if reserva:
+            paso_a_confirmada = nuevo == 'confirmada' and reserva.estado != 'confirmada'
+            reserva.estado = nuevo
+            db.commit()
+            if paso_a_confirmada:
+                cuando = reserva.fecha_hora.strftime('%d/%m a las %H:%M') if reserva.fecha_hora else 'el horario reservado'
+                confirmada = (reserva.wa_id, cuando, reserva.personas)
+    finally:
+        db.close()
+    if confirmada:
+        _avisar_reserva_confirmada(*confirmada)
     return redirect(url_for('admin.reservas'))
+
+
+def _avisar_reserva_confirmada(wa_id, cuando, personas):
+    """Recién cuando el local confirma la reserva desde el panel, el cliente recibe
+    la confirmación por WhatsApp (antes estaba 'sujeta a confirmación')."""
+    from whatsapp.providers import get_provider
+    nombre_local = config_store.get_config('nombre_local', 'SELQUET')
+    get_provider().send_message(
+        wa_id, f'¡Tu reserva en {nombre_local} quedó CONFIRMADA! ✅ Te esperamos {cuando} '
+               f'para {personas} persona/s. ¡Gracias! 🙌')
 
 
 # ── Takeaway (pedidos) ──
@@ -505,10 +523,9 @@ def _avisar_pedido_aprobado(pid):
     if not pedido:
         return
     provider = get_provider()
-    hr = pedido.hora_retiro.strftime('%H:%M') if pedido.hora_retiro else 'el horario acordado'
     provider.send_message(
-        pedido.wa_id, f'¡Tu pedido fue confirmado por el local! 🎉 Está en preparación. '
-                      f'Lo retirás a las {hr}. Te paso la comanda 👇')
+        pedido.wa_id, '¡Recibimos tu pedido! ✅ El local lo tomó y te va a confirmar el horario '
+                      'de retiro por acá. Te dejamos la comanda 👇')
     base = (os.getenv('PUBLIC_BASE_URL') or os.getenv('MP_BASE_URL') or '').rstrip('/')
     if base:
         provider.send_document(pedido.wa_id, f'{base}/pedir/{pid}/comanda.pdf',
@@ -523,16 +540,19 @@ def _avisar_pedido_aprobado(pid):
 @admin_bp.route('/opiniones')
 def opiniones():
     fecha = (request.args.get('fecha') or '').strip()
+    tipo = (request.args.get('tipo') or '').strip()   # elogio | queja | '' (todos)
     ini, fin = _rango_dia(fecha)
     db = SessionLocal()
     try:
         q = db.query(Opinion).order_by(Opinion.creado_en.desc())
         if ini:
             q = q.filter(Opinion.creado_en >= ini, Opinion.creado_en < fin)
+        if tipo in ('elogio', 'queja', 'comentario'):
+            q = q.filter(Opinion.tipo == tipo)
         filas = q.all()
     finally:
         db.close()
-    return render_template('admin/opiniones.html', active='opiniones', filas=filas, fecha=fecha)
+    return render_template('admin/opiniones.html', active='opiniones', filas=filas, fecha=fecha, tipo=tipo)
 
 
 @admin_bp.route('/notificaciones/pendientes')

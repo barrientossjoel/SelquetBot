@@ -47,6 +47,11 @@ def enviar_pendientes() -> int:
                  f"Contanos qué te pareció, tu opinión nos ayuda un montón 🙏")
         try:
             provider.send_message(wa_id, texto)
+            # Guardamos el mensaje en el historial para que, cuando el cliente
+            # responda, el bot tenga contexto: lo trate como OPINIÓN (la registra)
+            # y NO arranque una conversación nueva saludándolo de cero.
+            from whatsapp.conversaciones import guardar_turno
+            guardar_turno(wa_id, 'assistant', [{'type': 'text', 'text': texto}])
         except Exception as e:
             print(f"[Seguimiento] Error enviando a {wa_id}: {e}")
         _marcar_enviado(pedido_id)   # marca igual, para no reintentar en loop
