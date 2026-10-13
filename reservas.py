@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import fechas_contacto
 import notificaciones_panel
 from config_store import get_config
 from database import SessionLocal
@@ -28,6 +29,22 @@ def _anticipacion_min() -> int:
 
 
 def disponibilidad(fecha_hora: datetime, personas: int) -> dict:
+    return {**_disponibilidad(fecha_hora, personas), **_aviso_contacto(fecha_hora)}
+
+
+def _aviso_contacto(fecha_hora: datetime) -> dict:
+    """Llaves extra que le avisan al bot que ese día el contacto es obligatorio."""
+    if not fechas_contacto.requiere_contacto(fecha_hora):
+        return {}
+    motivo = fechas_contacto.motivo(fecha_hora)
+    return {'contacto_obligatorio': True,
+            'nota_contacto': f'Las reservas del {fecha_hora.strftime("%d/%m")}'
+                             f'{f" ({motivo})" if motivo else ""} necesitan SÍ O SÍ '
+                             f'{fechas_contacto.ETIQUETA_DATO}: pedíselo antes de registrar '
+                             f'y pasalo en el campo "contacto".'}
+
+
+def _disponibilidad(fecha_hora: datetime, personas: int) -> dict:
     minimo = _anticipacion_min()
     if fecha_hora < datetime.now() + timedelta(minutes=minimo):
         return {'disponible': False, 'motivo': 'anticipacion',
@@ -49,10 +66,18 @@ def disponibilidad(fecha_hora: datetime, personas: int) -> dict:
             'mensaje': 'No hay mesas libres para ese horario. ¿Probamos con otro?'}
 
 
-def crear(fecha_hora: datetime, personas: int, nombre: str, wa_id: str) -> dict:
+def crear(fecha_hora: datetime, personas: int, nombre: str, wa_id: str,
+          contacto: str | None = None) -> dict:
     disp = disponibilidad(fecha_hora, personas)
     if not disp['disponible']:
         return {'ok': False, **disp}
+    contacto = (contacto or '').strip() or None
+    if fechas_contacto.requiere_contacto(fecha_hora) and not fechas_contacto.contacto_valido(contacto):
+        return {'ok': False, 'motivo': 'contacto_requerido', **_aviso_contacto(fecha_hora),
+                'mensaje': f'No registré nada: para esa fecha el local pide SÍ O SÍ '
+                           f'{fechas_contacto.ETIQUETA_DATO}. Pedíselo al cliente (un número de '
+                           f'teléfono o un email válido) y volvé a llamar crear_reserva con el '
+                           f'campo "contacto".'}
     db = SessionLocal()
     try:
         # Anti-duplicado: si el modelo llama dos veces, no crea dos reservas iguales.
@@ -65,13 +90,15 @@ def crear(fecha_hora: datetime, personas: int, nombre: str, wa_id: str) -> dict:
             return {'ok': True, 'reserva_id': reciente.id, 'duplicado': True,
                     'mensaje': 'Esa reserva ya quedó registrada.'}
         reserva = Reserva(wa_id=wa_id, nombre=(nombre or '').strip() or None,
-                          fecha_hora=fecha_hora, personas=personas, estado='nueva')
+                          contacto=contacto, fecha_hora=fecha_hora, personas=personas,
+                          estado='nueva')
         db.add(reserva)
         db.commit()
         reserva_id = reserva.id
         notificaciones_panel.crear('reserva',
             f'Nueva reserva Nº {reserva_id}: {(nombre or "").strip() or wa_id} · {personas} pers · '
-            f'{fecha_hora.strftime("%d/%m %H:%M")}', ref_id=reserva_id)
+            f'{fecha_hora.strftime("%d/%m %H:%M")}'
+            + (f' · contacto: {contacto}' if contacto else ''), ref_id=reserva_id)
         return {'ok': True, 'reserva_id': reserva_id,
                 'mensaje': f'Reserva registrada para {personas} persona/s el '
                            f'{fecha_hora.strftime("%d/%m a las %H:%M")}. '

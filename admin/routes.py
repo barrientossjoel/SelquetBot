@@ -11,6 +11,7 @@ from flask import (Blueprint, Response, abort, flash, redirect, render_template,
                    request, session, url_for)
 
 import config_store
+import fechas_contacto
 import notificaciones_panel
 from database import SessionLocal
 from models import (CambioPrecio, DestinatarioEvento, Faq, MenuItem, MesaConfig,
@@ -323,7 +324,20 @@ def mesas():
         filas = db.query(MesaConfig).order_by(MesaConfig.dia_semana, MesaConfig.hora_desde).all()
     finally:
         db.close()
-    return render_template('admin/mesas.html', active='mesas', filas=filas, dias=DIAS)
+    return render_template('admin/mesas.html', active='mesas', filas=filas, dias=DIAS,
+                           fechas_contacto_texto=fechas_contacto.texto_config())
+
+
+@admin_bp.route('/mesas/fechas-contacto', methods=['POST'])
+def mesas_fechas_contacto():
+    """Fechas especiales en las que la reserva exige un dato de contacto."""
+    guardadas, invalidas = fechas_contacto.guardar(request.form.get('fechas', ''))
+    if invalidas:
+        flash('No guardé nada: no se entendieron estas líneas (usá AAAA-MM-DD): '
+              + ' · '.join(invalidas), 'error')
+    else:
+        flash(f'{guardadas} fecha/s con contacto obligatorio', 'ok')
+    return redirect(url_for('admin.mesas'))
 
 
 @admin_bp.route('/mesas/nueva', methods=['POST'])
@@ -407,10 +421,17 @@ def reservas():
     muestran si ya fueron contactadas. La config (reporte/destinatarios) va aparte
     (solo admin)."""
     from datetime import datetime
+    fecha = (request.args.get('fecha') or '').strip()
+    ini, fin = _rango_dia(fecha)
     db = SessionLocal()
     try:
-        comunes = db.query(Reserva).filter(Reserva.estado != 'cancelada').all()
-        corporativas = db.query(SolicitudEvento).filter(SolicitudEvento.estado != 'cancelada').all()
+        cq = db.query(Reserva).filter(Reserva.estado != 'cancelada')
+        if ini:   # buscador por día: filtra las comunes por la fecha de la reserva
+            cq = cq.filter(Reserva.fecha_hora >= ini, Reserva.fecha_hora < fin)
+        comunes = cq.all()
+        # Las corporativas tienen fecha estimada en texto libre: no se filtran por día.
+        corporativas = ([] if fecha else
+                        db.query(SolicitudEvento).filter(SolicitudEvento.estado != 'cancelada').all())
         destinatarios = db.query(DestinatarioEvento).order_by(DestinatarioEvento.id.desc()).all()
     finally:
         db.close()
@@ -418,7 +439,7 @@ def reservas():
     items = [('comun', r) for r in comunes] + [('corporativa', s) for s in corporativas]
     items.sort(key=lambda t: t[1].creado_en or datetime.min, reverse=True)
     cfg = config_store.get_all_config()
-    return render_template('admin/reservas.html', active='reservas', items=items,
+    return render_template('admin/reservas.html', active='reservas', items=items, fecha=fecha,
                            destinatarios=destinatarios,
                            jefe_whatsapp=cfg.get('jefe_whatsapp', ''),
                            jefe_email=cfg.get('jefe_email', ''),
@@ -523,16 +544,17 @@ def _avisar_pedido_aprobado(pid):
     if not pedido:
         return
     provider = get_provider()
-    provider.send_message(
+    ok1 = provider.send_message(
         pedido.wa_id, '¡Recibimos tu pedido! ✅ El local lo tomó y te va a confirmar el horario '
                       'de retiro por acá. Te dejamos la comanda 👇')
     base = (os.getenv('PUBLIC_BASE_URL') or os.getenv('MP_BASE_URL') or '').rstrip('/')
     if base:
-        provider.send_document(pedido.wa_id, f'{base}/pedir/{pid}/comanda.pdf',
-                               filename=f'Comanda {pedido.id}.pdf',
-                               caption='Mostrá esta comanda al retirar 🙌')
+        ok2 = provider.send_document(pedido.wa_id, f'{base}/pedir/{pid}/comanda.pdf',
+                                     filename=f'Comanda {pedido.id}.pdf',
+                                     caption='Mostrá esta comanda al retirar 🙌')
     else:
-        provider.send_message(pedido.wa_id, pedidos.comanda_texto(pedido))
+        ok2 = provider.send_message(pedido.wa_id, pedidos.comanda_texto(pedido))
+    print(f'[Pedido aprobado] #{pid} → {pedido.wa_id}: mensaje={ok1} comanda={ok2}', flush=True)
 
 
 # ── Opiniones ──

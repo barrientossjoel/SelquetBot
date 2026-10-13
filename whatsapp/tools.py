@@ -33,7 +33,9 @@ TOOLS = [
         'name': 'crear_reserva',
         'description': 'Registra una reserva (re-verifica disponibilidad). Antes de llamarla asegurate de '
                        'tener nombre, fecha, hora y personas. La reserva queda pendiente de que el local la confirme. '
-                       'Requiere al menos 3 horas de anticipación desde ahora.',
+                       'Requiere al menos 3 horas de anticipación desde ahora. '
+                       'En las fechas especiales que figuran en el bloque FECHAS CON CONTACTO OBLIGATORIO '
+                       'hay que mandar además "contacto": sin eso la reserva se rechaza.',
         'input_schema': {
             'type': 'object',
             'properties': {
@@ -41,6 +43,9 @@ TOOLS = [
                 'fecha': {'type': 'string', 'description': 'Fecha en formato YYYY-MM-DD.'},
                 'hora': {'type': 'string', 'description': 'Hora en formato HH:MM (24h).'},
                 'personas': {'type': 'integer', 'description': 'Cantidad de personas.'},
+                'contacto': {'type': 'string', 'description': 'Dato de contacto del cliente: teléfono o '
+                                                              'email, tal como lo dio. Obligatorio en las '
+                                                              'fechas especiales.'},
             },
             'required': ['fecha', 'hora', 'personas'],
         },
@@ -142,7 +147,8 @@ def ejecutar(nombre: str, params: dict, telefono: str) -> dict:
             return reservas.disponibilidad(_a_fecha_hora(params), int(params['personas']))
         if nombre == 'crear_reserva':
             return reservas.crear(_a_fecha_hora(params), int(params['personas']),
-                                  params.get('nombre', ''), telefono)
+                                  params.get('nombre', ''), telefono,
+                                  params.get('contacto'))
         if nombre == 'crear_pedido':
             return _crear_pedido(params, telefono)
         if nombre == 'enviar_carta':

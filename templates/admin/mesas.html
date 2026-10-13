@@ -18,6 +18,17 @@
 </div>
 
 <div class="card">
+  <h2>Fechas con contacto obligatorio</h2>
+  <p class="hint">Días en los que el bot pide <b>sí o sí</b> un dato de contacto (teléfono o email)
+    para tomar la reserva. Una fecha por línea, formato <code>AAAA-MM-DD</code>, con un motivo
+    opcional después de <code>|</code>. Ejemplo: <code>2026-10-18 | Día de la Madre</code>.</p>
+  <form method="post" action="{{ url_for('admin.mesas_fechas_contacto') }}">
+    <textarea name="fechas" rows="4" placeholder="2026-10-18 | Día de la Madre">{{ fechas_contacto_texto }}</textarea>
+    <button class="btn primary">Guardar fechas</button>
+  </form>
+</div>
+
+<div class="card">
   <h2>Franjas configuradas</h2>
   {% if not filas %}
     <p class="empty">Todavía no hay franjas. Sin franjas, el bot responde que no toma reservas.</p>

@@ -4,11 +4,15 @@
 <div class="card">
   <div class="card-head">
     <h2>Todas las reservas</h2>
-    {% if items %}<span class="badge estado">{{ items|length }}</span>{% endif %}
+    <form method="get" style="margin:0; display:flex; gap:8px; align-items:center">
+      <input type="date" name="fecha" value="{{ fecha }}" onchange="this.form.submit()" style="margin:0; flex:0 0 170px">
+      {% if fecha %}<a class="btn small ghost" href="{{ url_for('admin.reservas') }}">Ver todas</a>{% endif %}
+    </form>
   </div>
   <p class="hint">Comunes y corporativas juntas. Las <b>corporativas</b> van marcadas:
     <span class="badge nohay">rojo = sin contactar</span> ·
-    <span class="badge hay">verde = contactada</span>.</p>
+    <span class="badge hay">verde = contactada</span>.
+    {% if fecha %}<br>Mostrando reservas del <b>{{ fecha }}</b> (las corporativas no se filtran por fecha).{% endif %}</p>
 
   {% if not items %}
     <p class="empty">Todavía no hay reservas.</p>
@@ -25,7 +29,8 @@
           <tr id="reserva-{{ r.id }}" class="{{ 'alerta-pendiente' if r.estado == 'nueva' }}">
             <td>{{ r.creado_en.strftime('%d/%m %H:%M') if r.creado_en }}</td>
             <td>{{ r.fecha_hora.strftime('%d/%m %H:%M') if r.fecha_hora }}</td>
-            <td>{{ r.nombre or r.wa_id }}</td>
+            <td>{{ r.nombre or r.wa_id }}
+              {% if r.contacto %}<br><small>📞 {{ r.contacto }}</small>{% endif %}</td>
             <td>{{ r.personas }}</td>
             <td><span class="badge estado">Común</span></td>
             <td><span class="badge {{ 'hay' if r.estado == 'confirmada' else 'estado' }}">

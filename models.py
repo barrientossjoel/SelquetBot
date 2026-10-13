@@ -105,6 +105,7 @@ class Reserva(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     wa_id = Column(String(20), nullable=False, index=True)
     nombre = Column(String(120))
+    contacto = Column(String(120))                 # teléfono o email; obligatorio en fechas especiales
     fecha_hora = Column(DateTime, nullable=False)
     personas = Column(Integer, nullable=False, default=1)
     estado = Column(String(20), default='nueva')   # nueva | confirmada | cumplida | cancelada
