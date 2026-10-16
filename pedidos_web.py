@@ -49,10 +49,10 @@ def _mp_disponible() -> bool:
 
 
 def _telefono_ok(tel: str | None) -> bool:
-    """Un celular argentino normalizado queda como 54 9 + 10 dígitos (≈13). Aceptamos
-    12-14 por variantes de código de área; así se descartan números incompletos que
-    después WhatsApp rechazaría (y no llegaría la comanda)."""
-    return bool(tel) and tel.startswith('54') and 12 <= len(tel) <= 14
+    """Un celular argentino normalizado queda como 54 9 + 10 dígitos = 13 exactos.
+    Exigimos ese formato para descartar números incompletos o mal armados (ej. con
+    el 0 nacional) que después WhatsApp rechazaría y no dejarían llegar la comanda."""
+    return bool(tel) and tel.startswith('549') and len(tel) == 13
 
 
 @pedir_bp.route('/pedir', methods=['GET'])
