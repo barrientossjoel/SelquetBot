@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import fechas_especiales
 import notificaciones
 import notificaciones_panel
 from database import SessionLocal
@@ -48,6 +49,16 @@ def _faltantes(datos: dict) -> list[str]:
     return faltan
 
 
+def _aviso_fecha_cerrada(fecha_estimada) -> str:
+    """Mensaje para el bot si el evento apunta a un día sin disponibilidad, o ''."""
+    fecha, motivo = fechas_especiales.detectar_cerrada(fecha_estimada)
+    if not fecha:
+        return ''
+    return (f'El {fecha.strftime("%d/%m")}{f" ({motivo})" if motivo else ""} el local ya está '
+            f'completo: no se toman eventos ni grupos grandes para ese día. No lo registres: '
+            f'decíselo con amabilidad y pedile otra fecha.')
+
+
 def _solo_presentes(datos: dict) -> dict:
     return {c: datos[c] for c in _CAMPOS if not _vacio(datos.get(c))}
 
@@ -74,8 +85,12 @@ def guardar_borrador(wa_id: str, datos: dict) -> dict:
         db.close()
 
     faltan = _faltantes(actual)
-    return {'ok': True, 'guardado': _solo_presentes(actual), 'faltan': faltan,
-            'listo_para_registrar': not faltan}
+    aviso = _aviso_fecha_cerrada(actual.get('fecha_estimada'))
+    respuesta = {'ok': True, 'guardado': _solo_presentes(actual), 'faltan': faltan,
+                 'listo_para_registrar': not faltan and not aviso}
+    if aviso:
+        respuesta['aviso'] = aviso
+    return respuesta
 
 
 def estado_borrador_texto(wa_id: str) -> str | None:
@@ -97,7 +112,11 @@ def estado_borrador_texto(wa_id: str) -> str | None:
     faltan = _faltantes(actual)
     texto = ('EVENTO EN CURSO — datos ya tomados (NO los vuelvas a pedir):\n'
              + '\n'.join(lineas))
-    if faltan:
+    aviso = _aviso_fecha_cerrada(actual.get('fecha_estimada'))
+    if aviso:
+        # Fecha cerrada: no tiene sentido pedir el resto ni registrar.
+        texto += f'\nOJO: {aviso}'
+    elif faltan:
         texto += '\nTe falta pedir: ' + ', '.join(faltan) + '.'
     else:
         texto += '\nYa tenés todo: confirmá el resumen y registralo con crear_solicitud_evento.'
@@ -135,6 +154,9 @@ def crear_solicitud(wa_id: str, datos: dict) -> dict:
         # Lo que llega en la tool pisa al borrador; el borrador cubre lo que se
         # haya caído del historial.
         merged = {**base, **_solo_presentes(datos)}
+        aviso = _aviso_fecha_cerrada(merged.get('fecha_estimada'))
+        if aviso:
+            return {'ok': False, 'motivo': 'fecha_completa', 'mensaje': aviso}
         # Anti-duplicado: si el modelo llama dos veces, no crea dos solicitudes iguales.
         reciente = db.query(SolicitudEvento).filter(
             SolicitudEvento.wa_id == wa_id,

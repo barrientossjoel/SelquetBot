@@ -100,8 +100,9 @@ SIN_DISPONIBILIDAD = ListadoFechas(
     instruccion_prompt='Si alguien quiere reservar para una de esas fechas, decile con amabilidad '
                        'que ese día ya está TODO RESERVADO y que no quedan mesas. No lo anotes en '
                        'lista de espera ni prometas avisarle si se libera algo: ofrecele otra fecha '
-                       'u otro horario, o pedir para llevar. Si es un evento o un grupo grande para '
-                       'esa fecha, tomale los datos igual para que el equipo lo contacte.',
+                       'u otro horario, o pedir para llevar. Vale para TODO: tampoco tomes eventos, '
+                       'festejos ni grupos grandes para esas fechas (el local no tiene lugar), '
+                       'ofrecele otra fecha y recién ahí tomale los datos.',
 )
 
 # Listados que el panel permite editar (clave de la URL → listado).
@@ -118,6 +119,26 @@ def bloques_prompt() -> list[str]:
     bloques = (SIN_DISPONIBILIDAD.bloque_prompt(),
                CONTACTO_OBLIGATORIO.bloque_prompt(excluir=cerradas))
     return [b for b in bloques if b]
+
+
+def detectar_cerrada(texto: str | None) -> tuple[date | None, str]:
+    """Busca en un texto libre ("el 18 de octubre a la noche") alguna de las fechas
+    cerradas y devuelve (fecha, motivo), o (None, '') si no hay ninguna.
+
+    Se buscan solo las fechas del listado (son pocas) en sus formas habituales, en
+    vez de intentar parsear cualquier fecha escrita a mano. Si el texto trae un año
+    y no es el de la fecha cerrada, no cuenta como coincidencia.
+    """
+    t = ' '.join((texto or '').lower().split())
+    if not t:
+        return None, ''
+    anios = set(re.findall(r'\b(20[0-9]{2})\b', t))
+    for fecha, motivo in sorted(SIN_DISPONIBILIDAD.fechas().items()):
+        if anios and str(fecha.year) not in anios:
+            continue
+        if any(v in t for v in _variantes(fecha)):
+            return fecha, motivo
+    return None, ''
 
 
 def contacto_valido(contacto: str | None) -> bool:
@@ -149,6 +170,18 @@ def _a_dia(cuando: datetime | date | None) -> date | None:
 
 
 _DIAS = ('lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo')
+_MESES = ('enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto',
+          'septiembre', 'octubre', 'noviembre', 'diciembre')
+
+
+def _variantes(f: date) -> set[str]:
+    """Formas en las que un cliente puede escribir esa fecha."""
+    d, m, mes = f.day, f.month, _MESES[f.month - 1]
+    numericas = {f'{dd}{sep}{mm}'
+                 for dd in (str(d), f'{d:02d}')
+                 for mm in (str(m), f'{m:02d}')
+                 for sep in ('/', '-', '.')}
+    return numericas | {f.isoformat(), f'{d} de {mes}', f'{d:02d} de {mes}'}
 
 
 def _dia_humano(f: date) -> str:
