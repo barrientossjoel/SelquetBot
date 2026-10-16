@@ -11,7 +11,7 @@ from flask import (Blueprint, Response, abort, flash, redirect, render_template,
                    request, session, url_for)
 
 import config_store
-import fechas_contacto
+import fechas_especiales
 import notificaciones_panel
 from database import SessionLocal
 from models import (CambioPrecio, DestinatarioEvento, Faq, MenuItem, MesaConfig,
@@ -325,18 +325,22 @@ def mesas():
     finally:
         db.close()
     return render_template('admin/mesas.html', active='mesas', filas=filas, dias=DIAS,
-                           fechas_contacto_texto=fechas_contacto.texto_config())
+                           fechas_contacto=fechas_especiales.CONTACTO_OBLIGATORIO.texto_config(),
+                           fechas_sin_lugar=fechas_especiales.SIN_DISPONIBILIDAD.texto_config())
 
 
-@admin_bp.route('/mesas/fechas-contacto', methods=['POST'])
-def mesas_fechas_contacto():
-    """Fechas especiales en las que la reserva exige un dato de contacto."""
-    guardadas, invalidas = fechas_contacto.guardar(request.form.get('fechas', ''))
+@admin_bp.route('/mesas/fechas/<listado>', methods=['POST'])
+def mesas_fechas(listado):
+    """Guarda uno de los listados de fechas especiales (ver fechas_especiales.EDITABLES)."""
+    destino = fechas_especiales.EDITABLES.get(listado)
+    if destino is None:
+        abort(404)
+    guardadas, invalidas = destino.guardar(request.form.get('fechas', ''))
     if invalidas:
         flash('No guardé nada: no se entendieron estas líneas (usá AAAA-MM-DD): '
               + ' · '.join(invalidas), 'error')
     else:
-        flash(f'{guardadas} fecha/s con contacto obligatorio', 'ok')
+        flash(f'{guardadas} fecha/s guardada/s', 'ok')
     return redirect(url_for('admin.mesas'))
 
 

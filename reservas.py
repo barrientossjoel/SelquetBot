@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-import fechas_contacto
+import fechas_especiales
 import notificaciones_panel
 from config_store import get_config
 from database import SessionLocal
@@ -29,22 +29,30 @@ def _anticipacion_min() -> int:
 
 
 def disponibilidad(fecha_hora: datetime, personas: int) -> dict:
-    return {**_disponibilidad(fecha_hora, personas), **_aviso_contacto(fecha_hora)}
+    disp = _disponibilidad(fecha_hora, personas)
+    return {**disp, **_aviso_contacto(fecha_hora)} if disp['disponible'] else disp
 
 
 def _aviso_contacto(fecha_hora: datetime) -> dict:
     """Llaves extra que le avisan al bot que ese día el contacto es obligatorio."""
-    if not fechas_contacto.requiere_contacto(fecha_hora):
+    if not fechas_especiales.CONTACTO_OBLIGATORIO.contiene(fecha_hora):
         return {}
-    motivo = fechas_contacto.motivo(fecha_hora)
+    motivo = fechas_especiales.CONTACTO_OBLIGATORIO.motivo(fecha_hora)
     return {'contacto_obligatorio': True,
             'nota_contacto': f'Las reservas del {fecha_hora.strftime("%d/%m")}'
                              f'{f" ({motivo})" if motivo else ""} necesitan SÍ O SÍ '
-                             f'{fechas_contacto.ETIQUETA_DATO}: pedíselo antes de registrar '
+                             f'{fechas_especiales.ETIQUETA_DATO}: pedíselo antes de registrar '
                              f'y pasalo en el campo "contacto".'}
 
 
 def _disponibilidad(fecha_hora: datetime, personas: int) -> dict:
+    if fechas_especiales.SIN_DISPONIBILIDAD.contiene(fecha_hora):
+        motivo = fechas_especiales.SIN_DISPONIBILIDAD.motivo(fecha_hora)
+        return {'disponible': False, 'motivo': 'fecha_completa',
+                'mensaje': f'Para el {fecha_hora.strftime("%d/%m")}'
+                           f'{f" ({motivo})" if motivo else ""} ya está TODO RESERVADO: no quedan '
+                           f'mesas y el local no toma más reservas para ese día. Decíselo con '
+                           f'amabilidad, no lo anotes en lista de espera y ofrecele otra fecha.'}
     minimo = _anticipacion_min()
     if fecha_hora < datetime.now() + timedelta(minutes=minimo):
         return {'disponible': False, 'motivo': 'anticipacion',
@@ -72,10 +80,11 @@ def crear(fecha_hora: datetime, personas: int, nombre: str, wa_id: str,
     if not disp['disponible']:
         return {'ok': False, **disp}
     contacto = (contacto or '').strip() or None
-    if fechas_contacto.requiere_contacto(fecha_hora) and not fechas_contacto.contacto_valido(contacto):
+    if (fechas_especiales.CONTACTO_OBLIGATORIO.contiene(fecha_hora)
+            and not fechas_especiales.contacto_valido(contacto)):
         return {'ok': False, 'motivo': 'contacto_requerido', **_aviso_contacto(fecha_hora),
                 'mensaje': f'No registré nada: para esa fecha el local pide SÍ O SÍ '
-                           f'{fechas_contacto.ETIQUETA_DATO}. Pedíselo al cliente (un número de '
+                           f'{fechas_especiales.ETIQUETA_DATO}. Pedíselo al cliente (un número de '
                            f'teléfono o un email válido) y volvé a llamar crear_reserva con el '
                            f'campo "contacto".'}
     db = SessionLocal()

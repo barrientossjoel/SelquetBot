@@ -4,7 +4,7 @@ tiene datos propios: refleja lo que el panel tenga cargado en ese momento.
 """
 from __future__ import annotations
 
-import fechas_contacto
+import fechas_especiales
 from config_store import CAMPOS_INFO, CLAVES_ESPECIALES, get_all_config
 from database import SessionLocal
 from formato import pesos
@@ -12,7 +12,7 @@ from models import Faq, MenuItem
 
 
 def build_datos_local() -> str:
-    partes = [_bloque_info(), fechas_contacto.bloque_prompt(), _bloque_menu(), _bloque_faqs()]
+    partes = [_bloque_info(), *fechas_especiales.bloques_prompt(), _bloque_menu(), _bloque_faqs()]
     return "\n\n".join(p for p in partes if p)
 
 
