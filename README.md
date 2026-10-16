@@ -1,119 +1,127 @@
-# SELQUET Bot — MVP WhatsApp (sandbox)
+# SELQUET Bot
 
-Asistente de WhatsApp del restaurante SELQUET. Esta primera etapa es **solo el MVP
-mínimo en sandbox** (sección 7 de la guía): recibe un mensaje de texto, arma un prompt
-con la personalidad de SELQUET, llama a Claude y responde por WhatsApp, con historial
-por usuario.
+Sistema propio de atención por WhatsApp para el restaurante SELQUET: un motor
+conversacional sobre **Claude** que reserva mesas, toma solicitudes de eventos,
+gestiona pedidos para llevar con cobro real y mantiene al local al tanto de
+todo, con un panel de administración propio. **En producción**, corriendo 24/7.
 
-> ⚠️ **Regla madre:** todo se prueba con el **número de prueba de Meta**. Nada productivo,
-> nada con el número real de SELQUET, nada con la base de ~5.800 contactos. Si algo obliga
-> a salir del sandbox, **frenar y consultar**.
+No es un árbol de botones ("escribí 1 para...") ni un builder de chatbots: es
+un backend a medida (Flask + SQLAlchemy) con un loop agéntico de function
+calling, pensado para conversar como lo haría una persona del local.
+
+## Funcionalidades
+
+- **Chat conversacional** — responde horarios, ubicación, formas de pago,
+  FAQs y precios puntuales leyendo siempre datos en vivo del panel (nunca
+  inventa ni tiene nada hardcodeado).
+- **Reservas de mesa** — motor de disponibilidad propio por franja horaria y
+  capacidad configurada; los grupos grandes se derivan automáticamente a
+  eventos.
+- **Eventos** (corporativos, privados y sociales) — formulario conversacional
+  con estado persistente por teléfono: el bot va guardando cada dato apenas
+  lo captura y nunca vuelve a preguntar algo ya dado, aunque la charla se
+  corte y retome horas después. Avisa al equipo por WhatsApp y email.
+- **Pedidos para llevar** — portal web propio (`/pedir`) con el menú, cálculo
+  de total, mínimo y anticipación de retiro configurables, y pago con
+  **Mercado Pago** (o "al retirar"). También se puede armar por chat.
+- **Carta y comanda en PDF** — la carta real del local con los precios del
+  sistema actualizados al vuelo, y una comanda con la marca de SELQUET que se
+  manda al cliente al aprobar el pedido.
+- **Opiniones** — registra elogios y quejas; una queja dispara una alerta
+  inmediata a los jefes (WhatsApp + email).
+- **Seguimiento post-pedido** — a las pocas horas de un pedido, el bot
+  pregunta cómo le fue al cliente y trata la respuesta como una opinión, no
+  como un saludo de alguien nuevo.
+- **Reporte diario automático** — resumen de pedidos, reservas, eventos y
+  opiniones del día, enviado solo a los responsables del local.
+- **Panel de administración** (`/admin`) — información del local, FAQs, menú
+  (con importación desde Excel), mesas, gestión de reservas/pedidos/eventos,
+  notificaciones en vivo (campana + sonido) y usuarios con roles
+  (`admin` / `local`).
+- **Anti-duplicados y red de seguridad** — no registra dos veces la misma
+  reserva/evento, y si el modelo le dice al cliente "quedó registrado" sin
+  haber llamado a la herramienta correspondiente, el sistema lo detecta y lo
+  registra igual.
 
 ## Stack
 
-Mismo stack que el bot ya productivo de FacturAI (`ocr_web`), recortado para este MVP:
-
-- **Flask** + Blueprint (webhook).
-- **Providers abstraídos** (`whatsapp/providers/`): **Meta** (principal, número de prueba)
-  y **Twilio** (fallback), seleccionables con `WHATSAPP_PROVIDER`.
-- **SQLAlchemy + SQLite** para el historial (para producción se cambia `DATABASE_URL` a Postgres).
-- **Claude** vía SDK `anthropic`. Modelo por defecto: `claude-haiku-4-5` (el más barato y
-  el óptimo para FAQ conversacional). Se cambia con `CLAUDE_MODEL` sin tocar código.
-- Procesamiento del webhook en **thread daemon** (responde 200 rápido) y **dedup** por id de mensaje.
-
-Fuera del MVP (fases siguientes): reservas, flujo de pedido+pago+retiro con MercadoPago,
-aviso al gerente, CVs, encuestas, campañas, deploy productivo.
+- **Flask** (blueprints: `whatsapp`, `admin`, `pagos`, `pedir`) + **SQLAlchemy**
+  sobre SQLite (migrable a Postgres con solo cambiar `DATABASE_URL`).
+- **Claude** (`anthropic` SDK) como motor conversacional, con function calling
+  sobre 7 herramientas de acción (reservar, pedir, registrar evento/opinión,
+  etc.). En producción: `claude-sonnet-5` (se probó Haiku primero, pero era
+  inconsistente en flujos multi-paso como eventos).
+- **Proveedor de WhatsApp abstraído** (`whatsapp/providers/`): **Twilio** en
+  producción, **Meta Cloud API** disponible como alternativa —
+  seleccionable con `WHATSAPP_PROVIDER`, sin tocar el resto del código.
+- **Mercado Pago** (Checkout Pro) para el cobro de pedidos.
+- **PyMuPDF** para generar la carta y la comanda en PDF.
+- **APScheduler** para el reporte diario y el seguimiento post-pedido.
+- Deploy con **Gunicorn** (un solo worker, a propósito, para que el
+  scheduler no se dispare duplicado) + **pm2** + **Nginx** sobre un droplet
+  propio.
 
 ## Estructura
 
 ```
 SelquetBot/
-├── app.py                    # Flask: registra el webhook, crea las tablas
-├── database.py               # engine + SessionLocal (DATABASE_URL, default sqlite)
-├── models.py                 # WhatsAppConversacion (historial)
+├── app.py                    # Flask: registra blueprints, init DB, seed y scheduler
+├── database.py                # engine + SessionLocal (DATABASE_URL, default SQLite)
+├── models.py                  # Tablas: conversaciones, config, menú, reservas, pedidos, eventos...
+├── config_store.py             # Config del local (clave-valor) que edita el panel
+├── carta.py                    # Carta en PDF con precios del sistema
+├── comanda.py                   # Comanda/ticket en PDF con branding SELQUET
+├── reservas.py                  # Motor de disponibilidad y alta de reservas
+├── eventos.py                   # Borrador + alta de solicitudes de evento, aviso al equipo
+├── pedidos.py                   # Armado de pedidos (matching de productos, total, mínimo)
+├── pedidos_web.py               # Blueprint del portal /pedir
+├── pagos.py / pagos_webhook.py  # Integración Mercado Pago (preferencias + webhook)
+├── reporte.py                   # Reporte diario a los responsables
+├── seguimiento.py                # "¿Cómo te fue?" post-pedido
+├── notificaciones.py / notificaciones_panel.py  # Email y avisos en vivo del panel
+├── telefono.py / formato.py     # Utilidades (normalización de teléfono, formato $)
 ├── whatsapp/
-│   ├── routes.py             # GET/POST /webhook/whatsapp
-│   ├── providers/            # base.py + meta.py + twilio.py + selector
-│   ├── chat_engine.py        # Claude + system prompt de SELQUET (menú de ejemplo)
-│   ├── conversaciones.py     # historial: 12 turnos y 30 min, TTL 24h
-│   └── message_processor.py  # dedup + thread daemon + orquestación
-├── test_local.py             # chat de consola sin Meta ni ngrok
+│   ├── routes.py               # GET/POST /webhook/whatsapp
+│   ├── providers/               # base.py + meta.py + twilio.py + selector
+│   ├── chat_engine.py            # Loop agéntico con Claude + system prompt
+│   ├── tools.py                  # Herramientas (function calling) del bot
+│   ├── contexto.py                # Arma el bloque de datos del local para el prompt
+│   ├── conversaciones.py          # Historial por teléfono (turnos, TTL)
+│   └── message_processor.py       # Dedup + thread daemon + orquestación
+├── admin/
+│   ├── routes.py                 # Todas las rutas del panel (con control de acceso por rol)
+│   ├── auth.py                    # Login / sesión
+│   └── excel_import.py             # Importación del menú desde Excel
+├── templates/ , static/          # Vistas y assets del panel y del portal /pedir
+├── test_local.py                  # Chat de consola sin WhatsApp ni ngrok
+├── deploy.sh                      # git pull + deps + pm2 restart (en el servidor)
 ├── requirements.txt
-├── .env.example
-└── README.md
+└── .env.example
 ```
 
-## Puesta en marcha
-
-### 1. Entorno
+## Puesta en marcha (desarrollo local)
 
 ```bash
 python -m venv .venv
 # Windows:  .venv\Scripts\activate
 # Linux/Mac: source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env      # y completar los valores
+cp .env.example .env      # completar los valores (ver tabla abajo)
 ```
 
-Como mínimo, para probar en consola basta con `ANTHROPIC_API_KEY`.
-
-### 2. Probar la lógica sin WhatsApp (recomendado primero)
+Con solo `ANTHROPIC_API_KEY` alcanza para probar la lógica de charla en
+consola:
 
 ```bash
 python test_local.py
 ```
 
-Preguntá: *"¿a qué hora abren?"*, *"¿tienen estacionamiento?"*, *"¿cuánto sale la milanesa?"*.
-Si responde con coherencia y tono rioplatense, y mantiene el contexto, **el núcleo está OK**.
-
-### 3. Meta for Developers
-
-1. Crear una **App** *Business* y agregarle el producto **WhatsApp**.
-2. Copiar el **token temporal**, el **`PHONE_NUMBER_ID`** y cargar tu celular como destinatario.
-3. Poner esos valores en `.env` (`WHATSAPP_API_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`) y elegir
-   un `WHATSAPP_VERIFY_TOKEN` inventado por vos.
-
-> El token de prueba de Meta **vence cada 24 h**: se regenera a mano en esta etapa. Un `401`
-> al enviar suele ser eso.
-
-### 4. Levantar el server y exponerlo
+Para levantar el server completo (bot + panel + portal de pedidos):
 
 ```bash
-python app.py                 # escucha en :8000
-ngrok http 8000               # en otra terminal → copiar la URL HTTPS
+python app.py                 # escucha en :8000 (admin en /admin, pedidos en /pedir)
+ngrok http 8000                # para exponerlo y probar el webhook de WhatsApp/MP
 ```
-
-En Meta → *Configuration → Webhook*: poner `https://TU-URL.ngrok.io/webhook/whatsapp`,
-el mismo `VERIFY_TOKEN`, y **suscribir el campo `messages`**.
-
-### 5. Demo
-
-Mandá un "hola" desde el celu de prueba. Debe aparecer en los logs y volver la respuesta del bot.
-
-## Verificación rápida por consola (sin celular)
-
-```bash
-# GET de verificación (challenge)
-curl "http://localhost:8000/webhook/whatsapp?hub.mode=subscribe&hub.verify_token=selquet_prueba_123&hub.challenge=12345"
-# → debe devolver 12345
-
-# POST simulando un mensaje entrante de Meta
-curl -X POST http://localhost:8000/webhook/whatsapp \
-  -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"from":"5491100000000","id":"wamid.TEST1","type":"text","text":{"body":"¿a qué hora abren?"}}]}}]}]}'
-# → 200 OK; la respuesta se envía por la Graph API (o se loguea si no hay credenciales)
-```
-
-## Checklist "listo para mostrar" (sección 13 de la guía)
-
-- [ ] App creada en Meta + WhatsApp agregado.
-- [ ] Número de prueba activo y celu nuestro cargado como destinatario.
-- [ ] Webhook GET verificado.
-- [ ] ngrok exponiendo el local con HTTPS.
-- [ ] Mensaje entrante aparece en los logs.
-- [ ] El bot responde vía Claude con el tono de SELQUET (horarios, estacionamiento, precios de ejemplo).
-- [ ] La conversación mantiene contexto.
-- [ ] Nada productivo, nada con el número o la base real de SELQUET.
 
 ## Variables de entorno
 
@@ -121,9 +129,28 @@ Ver `.env.example`. Las principales:
 
 | Variable | Para qué |
 |---|---|
-| `ANTHROPIC_API_KEY` | Key de Claude (con límite de gasto bajo en esta etapa). |
-| `CLAUDE_MODEL` | Modelo (default `claude-haiku-4-5`). |
-| `WHATSAPP_PROVIDER` | `meta` (default) o `twilio`. |
-| `WHATSAPP_VERIFY_TOKEN` | Token que inventamos para el challenge de Meta. |
-| `WHATSAPP_API_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | Credenciales del número de prueba de Meta. |
-| `DATABASE_URL` | Default SQLite; para producción, un Postgres. |
+| `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` | Key y modelo de Claude (default `claude-haiku-4-5`; producción usa `claude-sonnet-5`). |
+| `WHATSAPP_PROVIDER` | `twilio` (producción) o `meta`. |
+| `WHATSAPP_API_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | Credenciales de Meta Cloud API (si `WHATSAPP_PROVIDER=meta`). |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_WA_NUMBER` | Credenciales de Twilio (si `WHATSAPP_PROVIDER=twilio`). |
+| `PUBLIC_BASE_URL` | URL pública del backend (dominio en producción, ngrok en local). La usan el webhook de MP, los `back_urls` y los links de PDF. |
+| `MP_ACCESS_TOKEN` / `MP_BASE_URL` | Credencial de Mercado Pago (`TEST-...` no mueve plata real, `APP_USR-...` sí) y URL pública para sus callbacks. |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | Envío de emails a los destinatarios de eventos. |
+| `ADMIN_PASSWORD` / `FLASK_SECRET_KEY` | Acceso al panel `/admin` y firma de sesión. |
+| `DATABASE_URL` | Default SQLite; en producción migrable a Postgres. |
+
+## Deploy / producción
+
+El sistema corre en un droplet propio, con Gunicorn (un worker) gestionado
+por **pm2** detrás de **Nginx** (HTTPS con Let's Encrypt, renovación
+automática). Para redeployar tras subir cambios a GitHub:
+
+```bash
+./deploy.sh   # git pull --ff-only + pip install + pm2 restart selquet
+```
+
+---
+
+Ver también `SALIDA_A_PRODUCCION.md` (guía de prueba integral y pasos de
+publicación) e `INFRAESTRUCTURA.md` (detalle de infraestructura, no
+versionado por seguridad).
